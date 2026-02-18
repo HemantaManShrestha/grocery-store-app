@@ -1,10 +1,12 @@
 
 import { supabase } from './supabaseClient';
 
-export const seedDatabase = async (storeId) => {
-    console.log("Seeding database for store:", storeId);
+import { supabase } from './supabaseClient';
 
-    // 1. Ensure Store Exists
+export const createStore = async (storeId) => {
+    console.log("Creating store:", storeId);
+
+    // 1. Ensure Store Exists (Idempotent)
     const { error: storeError } = await supabase
         .from('stores')
         .upsert({
@@ -19,6 +21,12 @@ export const seedDatabase = async (storeId) => {
         console.error("Error creating store:", storeError);
         return { success: false, message: "Failed to create store." };
     }
+
+    return { success: true, message: "Store created successfully!" };
+};
+
+export const seedProducts = async (storeId) => {
+    console.log("Seeding products for store:", storeId);
 
     // 2. Define Products
     const products = [
@@ -125,8 +133,15 @@ export const seedDatabase = async (storeId) => {
 
     if (productsError) {
         console.error("Error seeding products:", productsError);
-        return { success: false, message: "Store created, but failed to add products." };
+        return { success: false, message: "Failed to add products." };
     }
 
-    return { success: true, message: "Database populated with Store and Sample Products!" };
+    return { success: true, message: "Sample products added successfully!" };
+};
+
+// Backwards compatibility if needed, though we will update Admin.jsx
+export const seedDatabase = async (storeId) => {
+    const s = await createStore(storeId);
+    if (!s.success) return s;
+    return await seedProducts(storeId);
 };

@@ -47,6 +47,7 @@ export const getStoreProducts = async (storeId) => {
         ...p,
         retailPrice: p.retail_price,
         wholesalePrice: p.wholesale_price,
+        wholesaleUnit: p.wholesale_unit, // Add this
         storeId: p.store_id
     }));
 };
@@ -60,6 +61,7 @@ export const addProduct = async (product) => {
         wholesale_price: product.wholesalePrice,
         retail_price: product.retailPrice,
         unit: product.unit,
+        wholesale_unit: product.wholesaleUnit, // Add this
         image: product.image,
         description: product.description
     };

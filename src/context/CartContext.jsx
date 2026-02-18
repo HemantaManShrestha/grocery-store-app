@@ -41,13 +41,14 @@ export const CartProvider = ({ children }) => {
         localStorage.setItem('viber-grocery-cart', JSON.stringify(state));
     }, [state]);
 
-    const addToCart = (product, quantity, priceType) => {
+    const addToCart = (product, quantity, priceType, unit) => {
         dispatch({
             type: 'ADD_ITEM',
             payload: {
                 ...product,
                 quantity,
                 selectedPriceType: priceType, // 'retail' or 'wholesale'
+                unit: unit, // Overwrite default unit with selected unit (e.g. 25kg)
                 price: priceType === 'wholesale' ? product.wholesalePrice : product.retailPrice
             }
         });

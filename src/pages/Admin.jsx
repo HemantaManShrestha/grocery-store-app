@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Settings, Package, Bell, MessageCircle, BarChart as ChartIcon, Users, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getStoreOrders, getStoreProducts, getStore, addProduct, updateStoreSettings, updateOrderStatus } from '../lib/db';
-import { seedDatabase } from '../lib/seed'; // Import seed function
+import { createStore, seedProducts } from '../lib/seed'; // Import new functions
 import LocationMap from '../components/LocationMap';
 
 const Admin = () => {
@@ -35,7 +35,7 @@ const Admin = () => {
 
     // New Product Form State
     const [newProduct, setNewProduct] = useState({
-        name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', image: '', description: ''
+        name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: ''
     });
 
     // Store Settings State
@@ -74,7 +74,7 @@ const Admin = () => {
         e.preventDefault();
         await addProduct({ ...newProduct, storeId });
         setIsAddProductOpen(false);
-        setNewProduct({ name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', image: '', description: '' });
+        setNewProduct({ name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: '' });
         loadData();
     };
 
@@ -103,7 +103,7 @@ const Admin = () => {
             "Phone": order.phone || '',
             "Total (Rs)": order.total,
             "Status": order.status,
-            "Items": order.items.map(i => `${i.name} (${i.quantity})`).join("; "),
+            "Items": order.items.map(i => `${i.name} - ${i.unit} (x${i.quantity})`).join("; "),
             "Address": (order.address || '').replace(/\n/g, ' '),
             "Map Location": order.location ? `${order.location.lat}, ${order.location.lng}` : 'N/A'
         }));
@@ -132,21 +132,21 @@ const Admin = () => {
                         <p className="text-gray-500 text-sm mt-1">This store does not exist in the database yet.</p>
                     </div>
                     <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-left">
-                        <h4 className="font-bold text-yellow-800 text-sm mb-1">First Time Setup?</h4>
+                        <h4 className="font-bold text-yellow-800 text-sm mb-1">New Store Setup</h4>
                         <p className="text-xs text-yellow-700 mb-3">
-                            Click below to populate the database with sample data for <strong>{storeId}</strong>.
+                            Click below to initialize the store for <strong>{storeId}</strong>.
                         </p>
                         <button
                             onClick={async () => {
                                 setLoading(true);
-                                const result = await seedDatabase(storeId);
+                                const result = await createStore(storeId);
                                 alert(result.message);
                                 if (result.success) window.location.reload();
                                 setLoading(false);
                             }}
                             className="w-full bg-yellow-600 text-white py-2 rounded-lg font-bold hover:bg-yellow-700 transition-colors text-sm"
                         >
-                            🌱 Seed Database Now
+                            🏗️ Create Store (Empty)
                         </button>
                     </div>
                     <Link to="/" className="block text-primary-600 text-sm hover:underline">Go Home</Link>
@@ -437,7 +437,8 @@ const Admin = () => {
                                         <input required placeholder="Category" className="p-2 border rounded" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} />
                                         <input required type="number" placeholder="Retail Price" className="p-2 border rounded" value={newProduct.retailPrice} onChange={e => setNewProduct({ ...newProduct, retailPrice: Number(e.target.value) })} />
                                         <input required type="number" placeholder="Wholesale Price" className="p-2 border rounded" value={newProduct.wholesalePrice} onChange={e => setNewProduct({ ...newProduct, wholesalePrice: Number(e.target.value) })} />
-                                        <input required placeholder="Unit (e.g. kg, packet)" className="p-2 border rounded" value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} />
+                                        <input required placeholder="Retail Unit (e.g. 1kg)" className="p-2 border rounded" value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} />
+                                        <input placeholder="Wholesale Unit (e.g. 25kg)" className="p-2 border rounded" value={newProduct.wholesaleUnit} onChange={e => setNewProduct({ ...newProduct, wholesaleUnit: e.target.value })} />
                                         <input placeholder="Image URL" className="p-2 border rounded" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
                                     </div>
                                     <textarea placeholder="Description" className="w-full p-2 border rounded" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
@@ -520,20 +521,20 @@ const Admin = () => {
                                 <h3 className="font-bold text-gray-700 mb-2">Development Tools</h3>
                                 <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
                                     <p className="text-sm text-yellow-800 mb-3">
-                                        <strong>Database Seeder:</strong> Use this to populate your empty Supabase database with sample categories (Rice, Drinks, etc.) and products.
+                                        <strong>Demo Data:</strong> If your store is empty, you can load sample products (Rice, Drinks, etc.) to test the app.
                                     </p>
                                     <button
                                         type="button"
                                         onClick={async () => {
-                                            if (window.confirm("Are you sure? This will add sample data to your database.")) {
-                                                const result = await seedDatabase(storeId);
+                                            if (window.confirm("Are you sure? This will add sample products.")) {
+                                                const result = await seedProducts(storeId);
                                                 alert(result.message);
-                                                if (result.success) window.location.reload();
+                                                loadData(); // Refresh, don't reload
                                             }
                                         }}
                                         className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-black transition-colors"
                                     >
-                                        🌱 Seed Sample Data
+                                        📦 Load Demo Products
                                     </button>
                                 </div>
                             </div>

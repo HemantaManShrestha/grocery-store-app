@@ -9,7 +9,8 @@ const ProductCard = ({ product }) => {
     const [isAdded, setIsAdded] = useState(false);
 
     const handleAddToCart = () => {
-        addToCart(product, 1, priceType);
+        const selectedUnit = priceType === 'retail' ? product.unit : (product.wholesaleUnit || 'Bulk');
+        addToCart(product, 1, priceType, selectedUnit);
         setIsAdded(true);
         setTimeout(() => setIsAdded(false), 1000);
     };
@@ -44,14 +45,14 @@ const ProductCard = ({ product }) => {
                             onClick={() => setPriceType('retail')}
                             className={`flex flex-col items-center py-1.5 rounded-md text-xs transition-all ${priceType === 'retail' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                            <span>Retail</span>
+                            <span>Retail ({product.unit})</span>
                             <span className="text-sm font-bold">Rs. {product.retailPrice}</span>
                         </button>
                         <button
                             onClick={() => setPriceType('wholesale')}
                             className={`flex flex-col items-center py-1.5 rounded-md text-xs transition-all ${priceType === 'wholesale' ? 'bg-white shadow-sm text-primary-600 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                            <span>Wholesale</span>
+                            <span>Wholesale ({product.wholesaleUnit || 'Bulk'})</span>
                             <span className="text-sm font-bold">Rs. {product.wholesalePrice}</span>
                         </button>
                     </div>

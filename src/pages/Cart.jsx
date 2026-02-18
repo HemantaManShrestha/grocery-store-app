@@ -42,7 +42,9 @@ const Cart = () => {
 
                             <div className="flex-1 min-w-0 pr-8">
                                 <div className="flex justify-between items-start mb-1">
-                                    <h3 className="font-semibold text-gray-900 truncate">{item.name}</h3>
+                                    <h3 className="font-semibold text-gray-900 truncate">
+                                        {item.name} <span className="text-gray-500 text-sm font-normal">({item.unit})</span>
+                                    </h3>
                                     <span className="font-bold text-gray-900 shrink-0">
                                         NPR {item.price * item.quantity}
                                     </span>
