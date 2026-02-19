@@ -26,6 +26,10 @@ const ProductCard = ({ product }) => {
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://placehold.co/600x400?text=No+Image';
+                    }}
                 />
                 <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded-full text-xs font-semibold text-primary-600 shadow-sm">
                     {product.category}

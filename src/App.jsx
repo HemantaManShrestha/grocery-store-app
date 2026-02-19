@@ -8,7 +8,8 @@ import { getStore } from './lib/db';
 
 // Pages
 import StoreHome from './pages/StoreHome';
-import Directory from './pages/Directory';
+import Landing from './pages/Landing'; // Replaces Directory
+import SuperAdmin from './pages/SuperAdmin';
 import CartPage from './pages/Cart';
 import CheckoutPage from './pages/Checkout';
 // Lazy load AdminPage for performance
@@ -57,13 +58,14 @@ const Footer = () => (
   </footer>
 )
 
+// Update Layout to handle super-admin case gracefully
 const Layout = ({ children }) => {
   const { storeId } = useParams();
   const [store, setStore] = useState(null);
   const location = useLocation();
 
-  // Check if we are on the landing page
-  const isLanding = location.pathname === '/';
+  // Check if we are on the landing page or super admin
+  const isLanding = location.pathname === '/' || location.pathname === '/super-admin';
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -93,7 +95,8 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageTransition><Layout><Directory /></Layout></PageTransition>} />
+        <Route path="/" element={<PageTransition><Layout><Landing /></Layout></PageTransition>} />
+        <Route path="/super-admin" element={<PageTransition><Layout><SuperAdmin /></Layout></PageTransition>} />
         <Route path="/store/:storeId" element={<PageTransition><Layout><StoreHome /></Layout></PageTransition>} />
         <Route path="/store/:storeId/cart" element={<PageTransition><Layout><CartPage /></Layout></PageTransition>} />
         <Route path="/store/:storeId/checkout" element={<PageTransition><Layout><CheckoutPage /></Layout></PageTransition>} />

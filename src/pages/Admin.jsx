@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Settings, Package, Bell, MessageCircle, BarChart as ChartIcon, Users, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getStoreOrders, getStoreProducts, getStore, addProduct, updateStoreSettings, updateOrderStatus } from '../lib/db';
+import { getStoreOrders, getStoreProducts, getStore, addProduct, updateProduct, deleteProduct, updateStoreSettings, updateOrderStatus, uploadImage } from '../lib/db';
 import { createStore, seedProducts } from '../lib/seed'; // Import new functions
 import LocationMap from '../components/LocationMap';
 
@@ -26,17 +26,95 @@ const Admin = () => {
 
     const handleLogin = (e) => {
         e.preventDefault();
-        if (pinInput === '1234') {
+        // Check Master Key (9999) OR Store Admin IDs
+        if (pinInput === '9999') {
             setIsAuthenticated(true);
+            return;
+        }
+
+        // Check if store has specific admin ids
+        if (store && store.admin_ids && store.admin_ids.length > 0) {
+            // Check if input matches any of the admin IDs (simulated 'login')
+            if (store.admin_ids.includes(pinInput)) {
+                setIsAuthenticated(true);
+            } else {
+                alert('Access Denied: Your ID/Phone is not authorized.');
+            }
         } else {
-            alert('Incorrect PIN');
+            // Fallback for stores created before this update (use old 1234)
+            if (pinInput === '1234' || pinInput === '9841XXXXXX') {
+                setIsAuthenticated(true);
+            } else {
+                alert('Incorrect PIN/ID');
+            }
         }
     };
 
-    // New Product Form State
+    // Image Compression Utility
+    const compressImage = async (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        const compressedFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
+                    }, 'image/jpeg', 0.8);
+                };
+            };
+        });
+    };
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const result = await uploadImage(file);
+            if (result.success) {
+                setNewProduct({ ...newProduct, image: result.url });
+            } else {
+                alert("Upload failed: " + result.error);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error processing image.");
+        }
+    };
+
     const [newProduct, setNewProduct] = useState({
         name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: ''
     });
+    const [editingProductId, setEditingProductId] = useState(null);
 
     // Store Settings State
     const [settingsForm, setSettingsForm] = useState({ name: '', logo: '', color: '' });
@@ -72,10 +150,43 @@ const Admin = () => {
 
     const handleAddProduct = async (e) => {
         e.preventDefault();
-        await addProduct({ ...newProduct, storeId });
+
+        if (editingProductId) {
+            await updateProduct({ ...newProduct, id: editingProductId });
+            alert("Product updated!");
+        } else {
+            await addProduct({ ...newProduct, storeId });
+            alert("Product added!");
+        }
+
         setIsAddProductOpen(false);
+        setEditingProductId(null);
         setNewProduct({ name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: '' });
         loadData();
+    };
+
+    const handleEditProduct = (product) => {
+        setNewProduct({
+            name: product.name,
+            category: product.category,
+            wholesalePrice: product.wholesalePrice,
+            retailPrice: product.retailPrice,
+            unit: product.unit,
+            wholesaleUnit: product.wholesaleUnit,
+            image: product.image,
+            description: product.description
+        });
+        setEditingProductId(product.id);
+        setIsAddProductOpen(true);
+        // Scroll to form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDeleteProduct = async (id) => {
+        if (window.confirm("Delete this product?")) {
+            await deleteProduct(id);
+            loadData();
+        }
     };
 
     const handleUpdateSettings = async (e) => {
@@ -164,14 +275,14 @@ const Admin = () => {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900">{store.name} Admin</h2>
-                        <p className="text-gray-500 text-sm mt-1">Enter PIN to access dashboard</p>
+                        <h2 className="text-2xl font-bold text-gray-900">{store.name} Admin</h2>
+                        <p className="text-gray-500 text-sm mt-1">Enter Admin ID / Phone Number</p>
                     </div>
                     <form onSubmit={handleLogin} className="space-y-4">
                         <input
-                            type="password"
-                            maxLength="4"
-                            className="w-full text-center text-2xl font-bold tracking-widest py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
-                            placeholder="••••"
+                            type="text"
+                            className="w-full text-center text-xl font-bold tracking-widest py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                            placeholder="Your Phone / ID"
                             value={pinInput}
                             onChange={(e) => setPinInput(e.target.value)}
                             autoFocus
@@ -431,7 +542,7 @@ const Admin = () => {
 
                             {isAddProductOpen && (
                                 <form onSubmit={handleAddProduct} className="bg-gray-50 p-4 rounded-xl mb-6 space-y-4 border border-gray-200">
-                                    <h3 className="font-bold text-gray-700">Add New Product</h3>
+                                    <h3 className="font-bold text-gray-700">{editingProductId ? 'Edit Product' : 'Add New Product'}</h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <input required placeholder="Product Name" className="p-2 border rounded" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
                                         <input required placeholder="Category" className="p-2 border rounded" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} />
@@ -439,12 +550,13 @@ const Admin = () => {
                                         <input required type="number" placeholder="Wholesale Price" className="p-2 border rounded" value={newProduct.wholesalePrice} onChange={e => setNewProduct({ ...newProduct, wholesalePrice: Number(e.target.value) })} />
                                         <input required placeholder="Retail Unit (e.g. 1kg)" className="p-2 border rounded" value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} />
                                         <input placeholder="Wholesale Unit (e.g. 25kg)" className="p-2 border rounded" value={newProduct.wholesaleUnit} onChange={e => setNewProduct({ ...newProduct, wholesaleUnit: e.target.value })} />
-                                        <input placeholder="Image URL" className="p-2 border rounded" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
+                                        <input placeholder="Image URL (or upload below)" className="p-2 border rounded" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
+                                        <input type="file" accept="image/*" onChange={handleImageUpload} className="p-2 border rounded text-xs" />
                                     </div>
                                     <textarea placeholder="Description" className="w-full p-2 border rounded" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
                                     <div className="flex justify-end gap-2">
-                                        <button type="button" onClick={() => setIsAddProductOpen(false)} className="px-4 py-2 text-gray-600">Cancel</button>
-                                        <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded">Save Product</button>
+                                        <button type="button" onClick={() => { setIsAddProductOpen(false); setEditingProductId(null); setNewProduct({ name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: '' }); }} className="px-4 py-2 text-gray-600">Cancel</button>
+                                        <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded">{editingProductId ? 'Update Product' : 'Save Product'}</button>
                                     </div>
                                 </form>
                             )}
@@ -459,7 +571,8 @@ const Admin = () => {
                                             <h4 className="font-semibold text-gray-900">{product.name}</h4>
                                             <p className="text-xs text-gray-500">Retail: {product.retailPrice} | Wholesale: {product.wholesalePrice}</p>
                                         </div>
-                                        <button className="text-sm text-primary-600 hover:underline">Edit</button>
+                                        <button onClick={() => handleDeleteProduct(product.id)} className="text-sm text-red-500 hover:text-red-700 mr-3">Delete</button>
+                                        <button onClick={() => handleEditProduct(product)} className="text-sm text-primary-600 hover:underline">Edit</button>
                                     </div>
                                 ))}
                             </div>

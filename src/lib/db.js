@@ -30,6 +30,82 @@ export const updateStoreSettings = async (storeId, updates) => {
     return data;
 };
 
+export const getAllStores = async () => {
+    const { data, error } = await supabase
+        .from('stores')
+        .select('*')
+        .order('id', { ascending: true });
+
+    if (error) console.error('Error fetching all stores:', error);
+    return data || [];
+};
+
+export const createStore = async (storeData) => {
+    const { data, error } = await supabase
+        .from('stores')
+        .insert([{
+            id: storeData.id,
+            name: storeData.name,
+            color: storeData.color,
+            logo: storeData.logo,
+            contact: storeData.contact,
+            admin_ids: storeData.adminIds // Array of strings
+        }])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating store:', error);
+        return { success: false, message: error.message };
+    }
+    return { success: true, data };
+};
+
+export const deleteStore = async (storeId) => {
+    // 1. Delete products first (cascade usually handles this but let's be safe)
+    await supabase.from('products').delete().eq('store_id', storeId);
+
+    // 2. Delete orders
+    await supabase.from('orders').delete().eq('store_id', storeId);
+
+    // 3. Delete store
+    const { error } = await supabase
+        .from('stores')
+        .delete()
+        .eq('id', storeId);
+
+    if (error) {
+        console.error('Error deleting store:', error);
+        return { success: false, message: error.message };
+    }
+    return { success: true };
+};
+
+export const uploadImage = async (file) => {
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('store_images')
+            .upload(filePath, file);
+
+        if (uploadError) {
+            throw uploadError;
+        }
+
+        const { data } = supabase.storage
+            .from('store_images')
+            .getPublicUrl(filePath);
+
+        return { success: true, url: data.publicUrl };
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 // --- Product Functions ---
 
 export const getStoreProducts = async (storeId) => {
@@ -74,6 +150,42 @@ export const addProduct = async (product) => {
 
     if (error) console.error('Error adding product:', error);
     return data;
+};
+
+export const updateProduct = async (product) => {
+    const dbProduct = {
+        name: product.name,
+        category: product.category,
+        wholesale_price: product.wholesalePrice,
+        retail_price: product.retailPrice,
+        unit: product.unit,
+        wholesale_unit: product.wholesaleUnit,
+        image: product.image,
+        description: product.description
+    };
+
+    const { data, error } = await supabase
+        .from('products')
+        .update(dbProduct)
+        .eq('id', product.id)
+        .select()
+        .single();
+
+    if (error) console.error('Error updating product:', error);
+    return data;
+};
+
+export const deleteProduct = async (productId) => {
+    const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+    if (error) {
+        console.error('Error deleting product:', error);
+        return { success: false, message: error.message };
+    }
+    return { success: true };
 };
 
 // --- Order Functions ---
