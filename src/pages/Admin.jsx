@@ -1,6 +1,7 @@
+```javascript
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Settings, Package, Bell, MessageCircle, BarChart as ChartIcon, Users, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X } from 'lucide-react';
+import { Settings, Package, Bell, MessageCircle, BarChart as ChartIcon, Users, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X, Share2, Copy } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getStoreOrders, getStoreProducts, getStore, addProduct, updateProduct, deleteProduct, updateStoreSettings, updateOrderStatus, uploadImage } from '../lib/db';
 import { createStore, seedProducts } from '../lib/seed'; // Import new functions
@@ -174,7 +175,10 @@ const Admin = () => {
             unit: product.unit,
             wholesaleUnit: product.wholesaleUnit,
             image: product.image,
-            description: product.description
+            description: product.description,
+            isSpotlight: product.isSpotlight,
+            discount: product.discount,
+            tags: product.tags
         });
         setEditingProductId(product.id);
         setIsAddProductOpen(true);
@@ -214,9 +218,9 @@ const Admin = () => {
             "Phone": order.phone || '',
             "Total (Rs)": order.total,
             "Status": order.status,
-            "Items": order.items.map(i => `${i.name} - ${i.unit} (x${i.quantity})`).join("; "),
+            "Items": order.items.map(i => `${ i.name } - ${ i.unit } (x${ i.quantity })`).join("; "),
             "Address": (order.address || '').replace(/\n/g, ' '),
-            "Map Location": order.location ? `${order.location.lat}, ${order.location.lng}` : 'N/A'
+            "Map Location": order.location ? `${ order.location.lat }, ${ order.location.lng } ` : 'N/A'
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(data);
@@ -224,7 +228,7 @@ const Admin = () => {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
 
         // Generate file name
-        const fileName = `Orders_${store.name}_${dateFilter || 'All'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        const fileName = `Orders_${ store.name }_${ dateFilter || 'All' }_${ new Date().toISOString().slice(0, 10) }.xlsx`;
 
         XLSX.writeFile(workbook, fileName);
     };
@@ -308,6 +312,24 @@ const Admin = () => {
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    const handleShare = async () => {
+        const url = `${ window.location.origin } /store/${ storeId } `;
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: store.name,
+                    text: `Shop groceries at ${ store.name } !`,
+                    url: url
+                });
+            } catch (err) {
+                console.log('Share cancelled');
+            }
+        } else {
+            navigator.clipboard.writeText(url);
+            alert('Shop link copied to clipboard!');
+        }
+    };
+
     return (
         <div className="container mx-auto px-4 pt-24 pb-20 max-w-6xl">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -319,13 +341,15 @@ const Admin = () => {
                     <p className="text-gray-500">Manage your products and orders</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Link to="/" className="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
-                        <LogOut className="w-4 h-4" />
-                        Switch Store
-                    </Link>
-                    <Link to={`/store/${storeId}`} className="bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-semibold hover:bg-primary-100 transition-colors flex items-center gap-2 text-sm">
+                    <button onClick={handleShare} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm shadow-sm">
+                        <Share2 className="w-4 h-4" /> Share Shop
+                    </button>
+                    <Link to={`/ store / ${ storeId } `} className="bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-semibold hover:bg-primary-100 transition-colors flex items-center gap-2 text-sm">
                         <ExternalLink className="w-4 h-4" />
                         View Live Shop
+                    </Link>
+                    <Link to="/" className="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <LogOut className="w-4 h-4" />
                     </Link>
                 </div>
             </div>
@@ -336,31 +360,31 @@ const Admin = () => {
                 <div className="md:col-span-1 space-y-2">
                     <button
                         onClick={() => setActiveTab('orders')}
-                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'orders' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'orders' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
                     >
                         <Package className="w-5 h-5" /> Orders
                     </button>
                     <button
                         onClick={() => setActiveTab('analytics')}
-                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'analytics' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'analytics' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
                     >
                         <ChartIcon className="w-5 h-5" /> Analytics
                     </button>
                     <button
                         onClick={() => setActiveTab('products')}
-                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'products' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'products' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
                     >
                         <Store className="w-5 h-5" /> Products
                     </button>
                     <button
                         onClick={() => setActiveTab('settings')}
-                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'settings' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'settings' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
                     >
                         <Settings className="w-5 h-5" /> Store Settings
                     </button>
                     <button
                         onClick={() => setActiveTab('broadcast')}
-                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'broadcast' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'broadcast' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
                     >
                         <Bell className="w-5 h-5" /> Broadcast
                     </button>
@@ -441,7 +465,7 @@ const Admin = () => {
 
                             {filteredOrders.length === 0 ? (
                                 <div className="text-center py-10 text-gray-400">
-                                    {dateFilter ? `No orders found for ${dateFilter}` : "No orders yet."}
+                                    {dateFilter ? `No orders found for ${ dateFilter }` : "No orders yet."}
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto rounded-lg border border-gray-100">
@@ -470,12 +494,12 @@ const Admin = () => {
                                                     </td>
                                                     <td className="px-4 py-3 font-bold text-gray-900">Rs. {order.total}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-                                                            ${order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                                                            ${order.status === 'Verified' ? 'bg-blue-100 text-blue-800' : ''}
-                                                            ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : ''}
-                                                            ${order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : ''}
-                                                        `}>
+                                                        <span className={`px - 2 py - 1 rounded - full text - xs font - semibold 
+                                                            ${ order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : '' }
+                                                            ${ order.status === 'Verified' ? 'bg-blue-100 text-blue-800' : '' }
+                                                            ${ order.status === 'Delivered' ? 'bg-green-100 text-green-800' : '' }
+                                                            ${ order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : '' }
+`}>
                                                             {order.status}
                                                         </span>
                                                     </td>
@@ -540,9 +564,6 @@ const Admin = () => {
                                 </button>
                             </div>
 
-                            {isAddProductOpen && (
-                                <form onSubmit={handleAddProduct} className="bg-gray-50 p-4 rounded-xl mb-6 space-y-4 border border-gray-200">
-                                    <h3 className="font-bold text-gray-700">{editingProductId ? 'Edit Product' : 'Add New Product'}</h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <input required placeholder="Product Name" className="p-2 border rounded" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
                                         <input required placeholder="Category" className="p-2 border rounded" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} />
@@ -550,8 +571,40 @@ const Admin = () => {
                                         <input required type="number" placeholder="Wholesale Price" className="p-2 border rounded" value={newProduct.wholesalePrice} onChange={e => setNewProduct({ ...newProduct, wholesalePrice: Number(e.target.value) })} />
                                         <input required placeholder="Retail Unit (e.g. 1kg)" className="p-2 border rounded" value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} />
                                         <input placeholder="Wholesale Unit (e.g. 25kg)" className="p-2 border rounded" value={newProduct.wholesaleUnit} onChange={e => setNewProduct({ ...newProduct, wholesaleUnit: e.target.value })} />
-                                        <input placeholder="Image URL (or upload below)" className="p-2 border rounded" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
-                                        <input type="file" accept="image/*" onChange={handleImageUpload} className="p-2 border rounded text-xs" />
+                                        
+                                        {/* New Feature Fields */}
+                                        <div className="flex items-center gap-2 p-2 border rounded bg-yellow-50">
+                                            <input 
+                                                type="checkbox" 
+                                                id="isSpotlight"
+                                                checked={newProduct.isSpotlight} 
+                                                onChange={e => {
+                                                    const currentSpotlights = products.filter(p => p.isSpotlight && p.id !== editingProductId).length;
+                                                    if (!newProduct.isSpotlight && currentSpotlights >= 5) {
+                                                        alert("Max 5 Spotlight products allowed!");
+                                                        return;
+                                                    }
+                                                    setNewProduct({ ...newProduct, isSpotlight: e.target.checked });
+                                                }} 
+                                            />
+                                            <label htmlFor="isSpotlight" className="text-sm font-bold text-yellow-800">Spotlight (Carousel)</label>
+                                        </div>
+                                        <input 
+                                            type="number" 
+                                            placeholder="Discount % (e.g. 10)" 
+                                            className="p-2 border rounded" 
+                                            value={newProduct.discount || ''} 
+                                            onChange={e => setNewProduct({ ...newProduct, discount: Number(e.target.value) })} 
+                                        />
+                                        <input 
+                                            placeholder="Tags (comma separated, e.g. New, Spicy)" 
+                                            className="p-2 border rounded col-span-2" 
+                                            value={Array.isArray(newProduct.tags) ? newProduct.tags.join(', ') : (newProduct.tags || '')} 
+                                            onChange={e => setNewProduct({ ...newProduct, tags: e.target.value.split(',').map(t => t.trim()) })} 
+                                        />
+
+                                        <input placeholder="Image URL (or upload below)" className="p-2 border rounded col-span-2" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
+                                        <input type="file" accept="image/*" onChange={handleImageUpload} className="p-2 border rounded text-xs col-span-2" />
                                     </div>
                                     <textarea placeholder="Description" className="w-full p-2 border rounded" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
                                     <div className="flex justify-end gap-2">
