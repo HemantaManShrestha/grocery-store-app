@@ -5,7 +5,7 @@ const CartContext = createContext();
 const cartReducer = (state, action) => {
     switch (action.type) {
         case 'ADD_ITEM':
-            const existingItemIndex = state.items.findIndex(item => item.id === action.payload.id);
+            const existingItemIndex = state.items.findIndex(item => item.id === action.payload.id && item.selectedPriceType === action.payload.selectedPriceType);
             if (existingItemIndex > -1) {
                 const newItems = [...state.items];
                 newItems[existingItemIndex].quantity += action.payload.quantity;

@@ -1,4 +1,4 @@
-```javascript
+
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Settings, Package, Bell, MessageCircle, BarChart as ChartIcon, Users, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X, Share2, Copy } from 'lucide-react';
@@ -210,25 +210,31 @@ const Admin = () => {
         // Dynamically import xlsx to avoid huge bundle size if not needed often
         const XLSX = await import('xlsx');
 
-        const data = filteredOrders.map(order => ({
-            "Order ID": order.id,
-            "Date": new Date(order.date).toLocaleDateString(),
-            "Time": new Date(order.date).toLocaleTimeString(),
-            "Customer Name": order.customer || '',
-            "Phone": order.phone || '',
-            "Total (Rs)": order.total,
-            "Status": order.status,
-            "Items": order.items.map(i => `${ i.name } - ${ i.unit } (x${ i.quantity })`).join("; "),
-            "Address": (order.address || '').replace(/\n/g, ' '),
-            "Map Location": order.location ? `${ order.location.lat }, ${ order.location.lng } ` : 'N/A'
-        }));
+        const data = filteredOrders.map(order => {
+            const itemsStr = (order.items || []).map(i => i.name + " - " + i.unit + " (x" + i.quantity + ")").join("; ");
+            const addressStr = (order.address || '').replace(/\n/g, ' ');
+            const mapLoc = order.location ? (order.location.lat + ", " + order.location.lng) : 'N/A';
+
+            return {
+                "Order ID": order.id,
+                "Date": new Date(order.date).toLocaleDateString(),
+                "Time": new Date(order.date).toLocaleTimeString(),
+                "Customer Name": order.customer || '',
+                "Phone": order.phone || '',
+                "Total (Rs)": order.total,
+                "Status": order.status,
+                "Items": itemsStr,
+                "Address": addressStr,
+                "Map Location": mapLoc
+            };
+        });
 
         const worksheet = XLSX.utils.json_to_sheet(data);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
 
         // Generate file name
-        const fileName = `Orders_${ store.name }_${ dateFilter || 'All' }_${ new Date().toISOString().slice(0, 10) }.xlsx`;
+        const fileName = `Orders_${store.name}_${dateFilter || 'All'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
         XLSX.writeFile(workbook, fileName);
     };
@@ -313,12 +319,12 @@ const Admin = () => {
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const handleShare = async () => {
-        const url = `${ window.location.origin } /store/${ storeId } `;
+        const url = `${window.location.origin} /store/${storeId} `;
         if (navigator.share) {
             try {
                 await navigator.share({
                     title: store.name,
-                    text: `Shop groceries at ${ store.name } !`,
+                    text: `Shop groceries at ${store.name} !`,
                     url: url
                 });
             } catch (err) {
@@ -344,7 +350,7 @@ const Admin = () => {
                     <button onClick={handleShare} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm shadow-sm">
                         <Share2 className="w-4 h-4" /> Share Shop
                     </button>
-                    <Link to={`/ store / ${ storeId } `} className="bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-semibold hover:bg-primary-100 transition-colors flex items-center gap-2 text-sm">
+                    <Link to={`/ store / ${storeId} `} className="bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-semibold hover:bg-primary-100 transition-colors flex items-center gap-2 text-sm">
                         <ExternalLink className="w-4 h-4" />
                         View Live Shop
                     </Link>
@@ -360,31 +366,31 @@ const Admin = () => {
                 <div className="md:col-span-1 space-y-2">
                     <button
                         onClick={() => setActiveTab('orders')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'orders' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'orders' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
                     >
                         <Package className="w-5 h-5" /> Orders
                     </button>
                     <button
                         onClick={() => setActiveTab('analytics')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'analytics' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'analytics' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
                     >
                         <ChartIcon className="w-5 h-5" /> Analytics
                     </button>
                     <button
                         onClick={() => setActiveTab('products')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'products' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'products' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
                     >
                         <Store className="w-5 h-5" /> Products
                     </button>
                     <button
                         onClick={() => setActiveTab('settings')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'settings' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'settings' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
                     >
                         <Settings className="w-5 h-5" /> Store Settings
                     </button>
                     <button
                         onClick={() => setActiveTab('broadcast')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${ activeTab === 'broadcast' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600' } `}
+                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'broadcast' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
                     >
                         <Bell className="w-5 h-5" /> Broadcast
                     </button>
@@ -465,7 +471,7 @@ const Admin = () => {
 
                             {filteredOrders.length === 0 ? (
                                 <div className="text-center py-10 text-gray-400">
-                                    {dateFilter ? `No orders found for ${ dateFilter }` : "No orders yet."}
+                                    {dateFilter ? `No orders found for ${dateFilter}` : "No orders yet."}
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto rounded-lg border border-gray-100">
@@ -495,10 +501,10 @@ const Admin = () => {
                                                     <td className="px-4 py-3 font-bold text-gray-900">Rs. {order.total}</td>
                                                     <td className="px-4 py-3">
                                                         <span className={`px - 2 py - 1 rounded - full text - xs font - semibold 
-                                                            ${ order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : '' }
-                                                            ${ order.status === 'Verified' ? 'bg-blue-100 text-blue-800' : '' }
-                                                            ${ order.status === 'Delivered' ? 'bg-green-100 text-green-800' : '' }
-                                                            ${ order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : '' }
+                                                            ${order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : ''}
+                                                            ${order.status === 'Verified' ? 'bg-blue-100 text-blue-800' : ''}
+                                                            ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : ''}
+                                                            ${order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : ''}
 `}>
                                                             {order.status}
                                                         </span>
@@ -564,6 +570,8 @@ const Admin = () => {
                                 </button>
                             </div>
 
+                            {isAddProductOpen && (
+                                <form onSubmit={handleAddProduct} className="p-4 bg-gray-50 rounded-xl mb-6 space-y-4 shadow-sm border border-gray-100">
                                     <div className="grid grid-cols-2 gap-4">
                                         <input required placeholder="Product Name" className="p-2 border rounded" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
                                         <input required placeholder="Category" className="p-2 border rounded" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} />
@@ -571,13 +579,13 @@ const Admin = () => {
                                         <input required type="number" placeholder="Wholesale Price" className="p-2 border rounded" value={newProduct.wholesalePrice} onChange={e => setNewProduct({ ...newProduct, wholesalePrice: Number(e.target.value) })} />
                                         <input required placeholder="Retail Unit (e.g. 1kg)" className="p-2 border rounded" value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} />
                                         <input placeholder="Wholesale Unit (e.g. 25kg)" className="p-2 border rounded" value={newProduct.wholesaleUnit} onChange={e => setNewProduct({ ...newProduct, wholesaleUnit: e.target.value })} />
-                                        
+
                                         {/* New Feature Fields */}
                                         <div className="flex items-center gap-2 p-2 border rounded bg-yellow-50">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 id="isSpotlight"
-                                                checked={newProduct.isSpotlight} 
+                                                checked={newProduct.isSpotlight}
                                                 onChange={e => {
                                                     const currentSpotlights = products.filter(p => p.isSpotlight && p.id !== editingProductId).length;
                                                     if (!newProduct.isSpotlight && currentSpotlights >= 5) {
@@ -585,22 +593,22 @@ const Admin = () => {
                                                         return;
                                                     }
                                                     setNewProduct({ ...newProduct, isSpotlight: e.target.checked });
-                                                }} 
+                                                }}
                                             />
                                             <label htmlFor="isSpotlight" className="text-sm font-bold text-yellow-800">Spotlight (Carousel)</label>
                                         </div>
-                                        <input 
-                                            type="number" 
-                                            placeholder="Discount % (e.g. 10)" 
-                                            className="p-2 border rounded" 
-                                            value={newProduct.discount || ''} 
-                                            onChange={e => setNewProduct({ ...newProduct, discount: Number(e.target.value) })} 
+                                        <input
+                                            type="number"
+                                            placeholder="Discount % (e.g. 10)"
+                                            className="p-2 border rounded"
+                                            value={newProduct.discount || ''}
+                                            onChange={e => setNewProduct({ ...newProduct, discount: Number(e.target.value) })}
                                         />
-                                        <input 
-                                            placeholder="Tags (comma separated, e.g. New, Spicy)" 
-                                            className="p-2 border rounded col-span-2" 
-                                            value={Array.isArray(newProduct.tags) ? newProduct.tags.join(', ') : (newProduct.tags || '')} 
-                                            onChange={e => setNewProduct({ ...newProduct, tags: e.target.value.split(',').map(t => t.trim()) })} 
+                                        <input
+                                            placeholder="Tags (comma separated, e.g. New, Spicy)"
+                                            className="p-2 border rounded col-span-2"
+                                            value={Array.isArray(newProduct.tags) ? newProduct.tags.join(', ') : (newProduct.tags || '')}
+                                            onChange={e => setNewProduct({ ...newProduct, tags: e.target.value.split(',').map(t => t.trim()) })}
                                         />
 
                                         <input placeholder="Image URL (or upload below)" className="p-2 border rounded col-span-2" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
@@ -726,38 +734,40 @@ const Admin = () => {
             </div>
 
             {/* Map Modal */}
-            {selectedOrderForMap && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative">
-                        <button
-                            onClick={() => setSelectedOrderForMap(null)}
-                            className="absolute top-4 right-4 bg-white/80 p-2 rounded-full hover:bg-white transition z-10"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
-                        <div className="p-6 border-b">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <MapPin className="text-primary-600" />
-                                Delivery Location
-                            </h2>
-                            <p className="text-sm text-gray-500">Order #{selectedOrderForMap.id}</p>
-                        </div>
-                        <div className="h-[400px]">
-                            {selectedOrderForMap.location ? (
-                                <LocationMap position={selectedOrderForMap.location} readOnly={true} />
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">
-                                    No map data available for this order.
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 bg-gray-50 text-sm text-gray-600">
-                            <strong>Note:</strong> Used to confirm delivery areas.
+            {
+                selectedOrderForMap && (
+                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative">
+                            <button
+                                onClick={() => setSelectedOrderForMap(null)}
+                                className="absolute top-4 right-4 bg-white/80 p-2 rounded-full hover:bg-white transition z-10"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                            <div className="p-6 border-b">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <MapPin className="text-primary-600" />
+                                    Delivery Location
+                                </h2>
+                                <p className="text-sm text-gray-500">Order #{selectedOrderForMap.id}</p>
+                            </div>
+                            <div className="h-[400px]">
+                                {selectedOrderForMap.location ? (
+                                    <LocationMap position={selectedOrderForMap.location} readOnly={true} />
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">
+                                        No map data available for this order.
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-4 bg-gray-50 text-sm text-gray-600">
+                                <strong>Note:</strong> Used to confirm delivery areas.
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

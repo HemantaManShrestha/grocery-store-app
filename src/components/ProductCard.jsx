@@ -34,6 +34,21 @@ const ProductCard = ({ product }) => {
                 <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded-full text-xs font-semibold text-primary-600 shadow-sm">
                     {product.category}
                 </div>
+
+                {/* badges */}
+                <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                    {product.discount > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            {product.discount}% OFF
+                        </span>
+                    )}
+                    {product.tags && product.tags.map(tag => (
+                        <span key={tag} className="bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm uppercase">
+                            {tag}
+                        </span>
+                    ))}
+                    {/* Fallback for "New" if calculated dynamically? User asked for manual tag, but we can do both if needed. For now manual tags via Admin is sufficient. */}
+                </div>
             </div>
 
             <div className="p-4 flex flex-col flex-1 space-y-3">

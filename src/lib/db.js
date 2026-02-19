@@ -128,127 +128,128 @@ export const getStoreProducts = async (storeId) => {
         isSpotlight: p.is_spotlight,
         discount: p.discount,
         tags: p.tags
+    }));
+};
+
+export const addProduct = async (product) => {
+    // Map frontend camelCase to DB snake_case
+    const dbProduct = {
+        store_id: product.storeId,
+        name: product.name,
+        category: product.category,
+        wholesale_price: product.wholesalePrice,
+        retail_price: product.retailPrice,
+        unit: product.unit,
+        wholesale_unit: product.wholesaleUnit, // Add this
+        image: product.image,
+        description: product.description,
+        is_spotlight: product.isSpotlight || false,
+        discount: product.discount || 0,
+        tags: product.tags || []
     };
 
-    export const addProduct = async (product) => {
-        // Map frontend camelCase to DB snake_case
-        const dbProduct = {
-            store_id: product.storeId,
-            name: product.name,
-            category: product.category,
-            wholesale_price: product.wholesalePrice,
-            retail_price: product.retailPrice,
-            unit: product.unit,
-            wholesale_unit: product.wholesaleUnit, // Add this
-            image: product.image,
-            description: product.description,
-            is_spotlight: product.isSpotlight || false,
-            discount: product.discount || 0,
-            tags: product.tags || []
-        };
+    const { data, error } = await supabase
+        .from('products')
+        .insert([dbProduct])
+        .select();
 
-        const { data, error } = await supabase
-            .from('products')
-            .insert([dbProduct])
-            .select();
+    if (error) {
+        console.error('Error adding product:', error);
+        return null;
+    }
+    return data[0];
+};
 
-        if (error) {
-            console.error('Error adding product:', error);
-            return null;
-        }
-        return data[0];
+export const updateProduct = async (product) => {
+    const dbProduct = {
+        name: product.name,
+        category: product.category,
+        wholesale_price: product.wholesalePrice,
+        retail_price: product.retailPrice,
+        unit: product.unit,
+        wholesale_unit: product.wholesaleUnit,
+        image: product.image,
+        description: product.description,
+        is_spotlight: product.isSpotlight,
+        discount: product.discount,
+        tags: product.tags
     };
 
-    export const updateProduct = async (product) => {
-        const dbProduct = {
-            name: product.name,
-            category: product.category,
-            wholesale_price: product.wholesalePrice,
-            retail_price: product.retailPrice,
-            unit: product.unit,
-            wholesale_unit: product.wholesaleUnit,
-            image: product.image,
-            description: product.description,
-            is_spotlight: product.isSpotlight,
-            discount: product.discount,
-            tags: product.tags
-        };
+    const { data, error } = await supabase
+        .from('products')
+        .update(dbProduct)
+        .eq('id', product.id)
+        .select()
+        .single();
 
-        const { data, error } = await supabase
-            .from('products')
-            .update(dbProduct)
-            .eq('id', product.id)
-            .select()
-            .single();
+    if (error) console.error('Error updating product:', error);
+    return data;
+};
 
-        if (error) console.error('Error updating product:', error);
-        return data;
+export const deleteProduct = async (productId) => {
+    const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+    if (error) {
+        console.error('Error deleting product:', error);
+        return { success: false, message: error.message };
+    }
+    return { success: true };
+};
+
+// --- Order Functions ---
+
+export const getStoreOrders = async (storeId) => {
+    const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('store_id', storeId);
+
+    if (error) console.error('Error fetching orders:', error);
+    return data || [];
+};
+
+export const addOrder = async (order) => {
+    // Generate ID on client or let DB handle it? 
+    // DB handles ID usually, but we want a readable one?
+    // Let's use the same ID generation logic but passed to DB
+    const timestamp = Date.now().toString().slice(-4);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const orderId = `ORD-${timestamp}-${random}`;
+
+    const dbOrder = {
+        id: orderId,
+        store_id: order.storeId,
+        customer: order.customer,
+        phone: order.phone,
+        address: order.address,
+        location: order.location, // jsonb
+        items: order.items,       // jsonb
+        total: order.total,
+        status: 'Pending',
+        is_verified: false
     };
 
-    export const deleteProduct = async (productId) => {
-        const { error } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', productId);
+    const { data, error } = await supabase
+        .from('orders')
+        .insert([dbOrder])
+        .select()
+        .single();
 
-        if (error) {
-            console.error('Error deleting product:', error);
-            return { success: false, message: error.message };
-        }
-        return { success: true };
-    };
+    if (error) console.error('Error adding order:', error);
+    return data;
+};
 
-    // --- Order Functions ---
+export const updateOrderStatus = async (orderId, newStatus) => {
+    const { data, error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId)
+        .select()
+        .single();
 
-    export const getStoreOrders = async (storeId) => {
-        const { data, error } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('store_id', storeId);
-
-        if (error) console.error('Error fetching orders:', error);
-        return data || [];
-    };
-
-    export const addOrder = async (order) => {
-        // Generate ID on client or let DB handle it? 
-        // DB handles ID usually, but we want a readable one?
-        // Let's use the same ID generation logic but passed to DB
-        const timestamp = Date.now().toString().slice(-4);
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        const orderId = `ORD-${timestamp}-${random}`;
-
-        const dbOrder = {
-            id: orderId,
-            store_id: order.storeId,
-            customer: order.customer,
-            phone: order.phone,
-            address: order.address,
-            location: order.location, // jsonb
-            items: order.items,       // jsonb
-            total: order.total,
-            status: 'Pending',
-            is_verified: false
-        };
-
-        const { data, error } = await supabase
-            .from('orders')
-            .insert([dbOrder])
-            .select()
-            .single();
-
-        if (error) console.error('Error adding order:', error);
-        return data;
-    };
-
-    export const updateOrderStatus = async (orderId, newStatus) => {
-        const { data, error } = await supabase
-            .from('orders')
-            .update({ status: newStatus })
-            .eq('id', orderId)
-            .select()
-            .single();
-
-        if (error) console.error('Error updating order:', error);
-        return data;
-    };
+    if (error) console.error('Error updating order:', error);
+    return data;
+};

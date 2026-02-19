@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Masonry from 'react-masonry-css';
 import ProductCard from '../components/ProductCard';
+import Carousel from '../components/Carousel';
 import SEO from '../components/SEO';
 import { getStore, getStoreProducts, initializeDb } from '../lib/db';
 
@@ -78,6 +79,11 @@ const StoreHome = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Carousel Limit Logic: Show only if spotlight products exist */}
+            {products.filter(p => p.isSpotlight).length > 0 && (
+                <Carousel products={products.filter(p => p.isSpotlight)} />
+            )}
 
             {/* Masonry Layout */}
             {filteredProducts.length > 0 ? (
