@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAllStores, createStore, deleteStore, uploadImage } from '../lib/db';
+import { createDemoStore } from '../lib/seed';
 import { Trash2, Plus, ExternalLink, RefreshCw, Copy, Check, Info } from 'lucide-react';
 
 const SuperAdmin = () => {
@@ -261,6 +262,31 @@ const SuperAdmin = () => {
                                     Create Store
                                 </button>
                             </form>
+                        </div>
+
+                        {/* Demo Store Generator */}
+                        <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-2xl shadow-lg mt-6 text-white relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+                            <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+                                🚀 Need a Demo?
+                            </h3>
+                            <p className="text-indigo-100 text-sm mb-4">
+                                Generate a full demo store with 20 products and 150+ dummy orders to test Analytics.
+                            </p>
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm("Create a new Demo Store?")) {
+                                        setLoading(true);
+                                        const result = await createDemoStore();
+                                        alert(result.message);
+                                        loadStores();
+                                        setLoading(false);
+                                    }
+                                }}
+                                className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold hover:bg-indigo-50 transition shadow-xl"
+                            >
+                                Generate Demo Store
+                            </button>
                         </div>
                     </div>
 

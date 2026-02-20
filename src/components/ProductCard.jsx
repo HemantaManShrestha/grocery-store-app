@@ -65,14 +65,29 @@ const ProductCard = ({ product }) => {
                             className={`flex flex-col items-center py-1.5 rounded-md text-xs transition-all ${priceType === 'retail' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <span>Retail ({product.unit})</span>
-                            <span className="text-sm font-bold">Rs. {product.retailPrice}</span>
+                            {/* Logic for Price */}
+                            {(product.discount > 0 && ((product.discountTarget || 'retail') === 'retail' || product.discountTarget === 'both')) ? (
+                                <div className="flex flex-col items-center leading-tight">
+                                    <span className="line-through text-gray-400 text-[10px]">Rs. {product.retailPrice}</span>
+                                    <span className="text-red-600 font-bold">Rs. {Math.round(product.retailPrice * (1 - product.discount / 100))}</span>
+                                </div>
+                            ) : (
+                                <span className="text-sm font-bold">Rs. {product.retailPrice}</span>
+                            )}
                         </button>
                         <button
                             onClick={() => setPriceType('wholesale')}
                             className={`flex flex-col items-center py-1.5 rounded-md text-xs transition-all ${priceType === 'wholesale' ? 'bg-white shadow-sm text-primary-600 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <span>Wholesale ({product.wholesaleUnit || 'Bulk'})</span>
-                            <span className="text-sm font-bold">Rs. {product.wholesalePrice}</span>
+                            {(product.discount > 0 && (product.discountTarget === 'wholesale' || product.discountTarget === 'both')) ? (
+                                <div className="flex flex-col items-center leading-tight">
+                                    <span className="line-through text-gray-400 text-[10px]">Rs. {product.wholesalePrice}</span>
+                                    <span className="text-red-600 font-bold">Rs. {Math.round(product.wholesalePrice * (1 - product.discount / 100))}</span>
+                                </div>
+                            ) : (
+                                <span className="text-sm font-bold">Rs. {product.wholesalePrice}</span>
+                            )}
                         </button>
                     </div>
 

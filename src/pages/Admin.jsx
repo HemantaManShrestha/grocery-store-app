@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Settings, Package, Bell, MessageCircle, BarChart as ChartIcon, Users, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X, Share2, Copy } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Settings, Package, Bell, BarChart as ChartIcon, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X, Share2, Search } from 'lucide-react';
 import { getStoreOrders, getStoreProducts, getStore, addProduct, updateProduct, deleteProduct, updateStoreSettings, updateOrderStatus, uploadImage } from '../lib/db';
-import { createStore, seedProducts } from '../lib/seed'; // Import new functions
+import { createStore, seedProducts } from '../lib/seed';
 import LocationMap from '../components/LocationMap';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
 
 const Admin = () => {
     const { storeId } = useParams();
@@ -19,6 +18,7 @@ const Admin = () => {
 
     // Filter & Export State
     const [dateFilter, setDateFilter] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
     const [selectedOrderForMap, setSelectedOrderForMap] = useState(null);
 
     // Security State
@@ -51,50 +51,6 @@ const Admin = () => {
         }
     };
 
-    // Image Compression Utility
-    const compressImage = async (file) => {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800;
-                    const MAX_HEIGHT = 800;
-                    let width = img.width;
-                    let height = img.height;
-
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    canvas.toBlob((blob) => {
-                        const compressedFile = new File([blob], file.name, {
-                            type: 'image/jpeg',
-                            lastModified: Date.now(),
-                        });
-                        resolve(compressedFile);
-                    }, 'image/jpeg', 0.8);
-                };
-            };
-        });
-    };
-
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -113,12 +69,12 @@ const Admin = () => {
     };
 
     const [newProduct, setNewProduct] = useState({
-        name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: ''
+        name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: '', isSpotlight: false, discount: 0, discountTarget: 'retail', tags: []
     });
     const [editingProductId, setEditingProductId] = useState(null);
 
     // Store Settings State
-    const [settingsForm, setSettingsForm] = useState({ name: '', logo: '', color: '' });
+    const [settingsForm, setSettingsForm] = useState({ name: '', logo: '', color: '', contact: '' });
 
     useEffect(() => {
         loadData();
@@ -162,7 +118,7 @@ const Admin = () => {
 
         setIsAddProductOpen(false);
         setEditingProductId(null);
-        setNewProduct({ name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: '' });
+        setNewProduct({ name: '', category: 'General', wholesalePrice: '', retailPrice: '', unit: '', wholesaleUnit: '', image: '', description: '', isSpotlight: false, discount: 0, discountTarget: 'retail', tags: [] });
         loadData();
     };
 
@@ -176,13 +132,13 @@ const Admin = () => {
             wholesaleUnit: product.wholesaleUnit,
             image: product.image,
             description: product.description,
-            isSpotlight: product.isSpotlight,
-            discount: product.discount,
-            tags: product.tags
+            isSpotlight: product.isSpotlight || false,
+            discount: product.discount || 0,
+            discountTarget: product.discountTarget || 'retail',
+            tags: product.tags || []
         });
         setEditingProductId(product.id);
         setIsAddProductOpen(true);
-        // Scroll to form
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -207,7 +163,6 @@ const Admin = () => {
             return;
         }
 
-        // Dynamically import xlsx to avoid huge bundle size if not needed often
         const XLSX = await import('xlsx');
 
         const data = filteredOrders.map(order => {
@@ -232,10 +187,7 @@ const Admin = () => {
         const worksheet = XLSX.utils.json_to_sheet(data);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-
-        // Generate file name
         const fileName = `Orders_${store.name}_${dateFilter || 'All'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-
         XLSX.writeFile(workbook, fileName);
     };
 
@@ -285,7 +237,6 @@ const Admin = () => {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900">{store.name} Admin</h2>
-                        <h2 className="text-2xl font-bold text-gray-900">{store.name} Admin</h2>
                         <p className="text-gray-500 text-sm mt-1">Enter Admin ID / Phone Number</p>
                     </div>
                     <form onSubmit={handleLogin} className="space-y-4">
@@ -312,19 +263,23 @@ const Admin = () => {
     // Filter Logic
     const filteredOrders = orders
         .filter(order => {
-            if (!dateFilter) return true;
-            const orderDate = new Date(order.date).toISOString().split('T')[0];
-            return orderDate === dateFilter;
+            const matchesDate = !dateFilter || new Date(order.date).toISOString().split('T')[0] === dateFilter;
+            const matchesSearch = !searchQuery ||
+                (order.customer?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                (order.phone?.includes(searchQuery)) ||
+                (order.id?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+            return matchesDate && matchesSearch;
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const handleShare = async () => {
-        const url = `${window.location.origin} /store/${storeId} `;
+        const url = `${window.location.origin}/store/${storeId}`;
         if (navigator.share) {
             try {
                 await navigator.share({
                     title: store.name,
-                    text: `Shop groceries at ${store.name} !`,
+                    text: `Shop groceries at ${store.name}!`,
                     url: url
                 });
             } catch (err) {
@@ -350,7 +305,7 @@ const Admin = () => {
                     <button onClick={handleShare} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm shadow-sm">
                         <Share2 className="w-4 h-4" /> Share Shop
                     </button>
-                    <Link to={`/ store / ${storeId} `} className="bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-semibold hover:bg-primary-100 transition-colors flex items-center gap-2 text-sm">
+                    <Link to={`/store/${storeId}`} className="bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-semibold hover:bg-primary-100 transition-colors flex items-center gap-2 text-sm">
                         <ExternalLink className="w-4 h-4" />
                         View Live Shop
                     </Link>
@@ -366,31 +321,31 @@ const Admin = () => {
                 <div className="md:col-span-1 space-y-2">
                     <button
                         onClick={() => setActiveTab('orders')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'orders' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
+                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'orders' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
                     >
                         <Package className="w-5 h-5" /> Orders
                     </button>
                     <button
                         onClick={() => setActiveTab('analytics')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'analytics' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
+                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'analytics' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
                     >
                         <ChartIcon className="w-5 h-5" /> Analytics
                     </button>
                     <button
                         onClick={() => setActiveTab('products')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'products' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
+                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'products' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
                     >
                         <Store className="w-5 h-5" /> Products
                     </button>
                     <button
                         onClick={() => setActiveTab('settings')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'settings' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
+                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'settings' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
                     >
                         <Settings className="w-5 h-5" /> Store Settings
                     </button>
                     <button
                         onClick={() => setActiveTab('broadcast')}
-                        className={`w - full text - left px - 4 py - 3 rounded - lg flex items - center gap - 3 transition - colors ${activeTab === 'broadcast' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'} `}
+                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'broadcast' ? 'bg-primary-50 text-primary-700 font-semibold' : 'hover:bg-gray-50 text-gray-600'}`}
                     >
                         <Bell className="w-5 h-5" /> Broadcast
                     </button>
@@ -403,45 +358,7 @@ const Admin = () => {
                     {activeTab === 'analytics' && (
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold">Sales Overview</h2>
-
-                            {/* Stats Cards */}
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-blue-50 p-4 rounded-xl">
-                                    <p className="text-xs text-blue-600 font-bold uppercase">Total Revenue</p>
-                                    <p className="text-2xl font-extrabold text-gray-900 mt-1">
-                                        Rs. {orders.reduce((sum, order) => sum + (order.total || 0), 0).toLocaleString()}
-                                    </p>
-                                </div>
-                                <div className="bg-green-50 p-4 rounded-xl">
-                                    <p className="text-xs text-green-600 font-bold uppercase">Total Orders</p>
-                                    <p className="text-2xl font-extrabold text-gray-900 mt-1">{orders.length}</p>
-                                </div>
-                                <div className="bg-purple-50 p-4 rounded-xl">
-                                    <p className="text-xs text-purple-600 font-bold uppercase">Avg. Order</p>
-                                    <p className="text-2xl font-extrabold text-gray-900 mt-1">
-                                        Rs. {orders.length ? Math.round(orders.reduce((sum, order) => sum + (order.total || 0), 0) / orders.length) : 0}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                <h3 className="font-bold text-gray-700 mb-6">Revenue Trend</h3>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={Object.entries(orders.reduce((acc, order) => {
-                                            const date = new Date(order.date).toLocaleDateString(undefined, { weekday: 'short' });
-                                            acc[date] = (acc[date] || 0) + order.total;
-                                            return acc;
-                                        }, {})).map(([name, total]) => ({ name, total }))}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                                            <YAxis axisLine={false} tickLine={false} />
-                                            <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                            <Bar dataKey="total" fill="#4f46e5" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
+                            <AnalyticsDashboard storeId={storeId} />
                         </div>
                     )}
 
@@ -452,6 +369,18 @@ const Admin = () => {
                                 <div className="flex items-center gap-4">
                                     <h2 className="text-xl font-bold">Orders</h2>
                                     <button onClick={loadData} className="text-primary-600 text-sm hover:underline">Refresh</button>
+                                </div>
+                                <div className="flex-1 max-w-md mx-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search by Name, Phone or Order ID..."
+                                            className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
                                 <div className="flex gap-2">
                                     <input
@@ -500,12 +429,12 @@ const Admin = () => {
                                                     </td>
                                                     <td className="px-4 py-3 font-bold text-gray-900">Rs. {order.total}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className={`px - 2 py - 1 rounded - full text - xs font - semibold 
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold 
                                                             ${order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : ''}
                                                             ${order.status === 'Verified' ? 'bg-blue-100 text-blue-800' : ''}
                                                             ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : ''}
                                                             ${order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : ''}
-`}>
+                                                        `}>
                                                             {order.status}
                                                         </span>
                                                     </td>
@@ -604,6 +533,15 @@ const Admin = () => {
                                             value={newProduct.discount || ''}
                                             onChange={e => setNewProduct({ ...newProduct, discount: Number(e.target.value) })}
                                         />
+                                        <select
+                                            className="p-2 border rounded bg-white"
+                                            value={newProduct.discountTarget || 'retail'}
+                                            onChange={e => setNewProduct({ ...newProduct, discountTarget: e.target.value })}
+                                        >
+                                            <option value="retail">Discount on Retail</option>
+                                            <option value="wholesale">Discount on Wholesale</option>
+                                            <option value="both">Discount on Both</option>
+                                        </select>
                                         <input
                                             placeholder="Tags (comma separated, e.g. New, Spicy)"
                                             className="p-2 border rounded col-span-2"
@@ -693,22 +631,28 @@ const Admin = () => {
 
                             <div className="pt-6 border-t border-gray-100 mt-8">
                                 <h3 className="font-bold text-gray-700 mb-2">Development Tools</h3>
-                                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                                    <p className="text-sm text-yellow-800 mb-3">
-                                        <strong>Demo Data:</strong> If your store is empty, you can load sample products (Rice, Drinks, etc.) to test the app.
+                                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-sm text-white">
+                                    <p className="text-sm text-indigo-100 mb-3">
+                                        <strong>Full Demo Store:</strong> Load 20 products and 150+ dummy orders to test Analytics functionality.
                                     </p>
                                     <button
                                         type="button"
                                         onClick={async () => {
-                                            if (window.confirm("Are you sure? This will add sample products.")) {
-                                                const result = await seedProducts(storeId);
-                                                alert(result.message);
-                                                loadData(); // Refresh, don't reload
+                                            if (window.confirm("This will add MANY orders and products to this store. Continue?")) {
+                                                const { seedOrders } = await import('../lib/seed');
+                                                const s2 = await seedProducts(storeId);
+                                                if (s2.success) {
+                                                    const s3 = await seedOrders(storeId);
+                                                    alert(s3.message);
+                                                    loadData();
+                                                } else {
+                                                    alert(s2.message);
+                                                }
                                             }
                                         }}
-                                        className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                                        className="bg-white text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-50 transition-colors shadow-lg"
                                     >
-                                        📦 Load Demo Products
+                                        🚀 Load Full Analytics Data
                                     </button>
                                 </div>
                             </div>

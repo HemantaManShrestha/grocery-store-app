@@ -42,6 +42,16 @@ export const CartProvider = ({ children }) => {
     }, [state]);
 
     const addToCart = (product, quantity, priceType, unit) => {
+        // Calculate Price with Discount
+        let basePrice = priceType === 'wholesale' ? product.wholesalePrice : product.retailPrice;
+
+        if (product.discount > 0) {
+            const target = product.discountTarget || 'retail';
+            if (target === 'both' || target === priceType) {
+                basePrice = basePrice - (basePrice * (product.discount / 100));
+            }
+        }
+
         dispatch({
             type: 'ADD_ITEM',
             payload: {
@@ -49,7 +59,7 @@ export const CartProvider = ({ children }) => {
                 quantity,
                 selectedPriceType: priceType, // 'retail' or 'wholesale'
                 unit: unit, // Overwrite default unit with selected unit (e.g. 25kg)
-                price: priceType === 'wholesale' ? product.wholesalePrice : product.retailPrice
+                price: Math.round(basePrice)
             }
         });
     };
