@@ -12,6 +12,8 @@ import Landing from './pages/Landing'; // Replaces Directory
 import SuperAdmin from './pages/SuperAdmin';
 import CartPage from './pages/Cart';
 import CheckoutPage from './pages/Checkout';
+import Auth from './pages/Auth';
+import ResetPassword from './pages/ResetPassword';
 // Lazy load AdminPage for performance
 const AdminPage = lazy(() => import('./pages/Admin'));
 import PageTransition from './components/PageTransition';
@@ -100,6 +102,8 @@ const AnimatedRoutes = () => {
         <Route path="/store/:storeId" element={<PageTransition><Layout><StoreHome /></Layout></PageTransition>} />
         <Route path="/store/:storeId/cart" element={<PageTransition><Layout><CartPage /></Layout></PageTransition>} />
         <Route path="/store/:storeId/checkout" element={<PageTransition><Layout><CheckoutPage /></Layout></PageTransition>} />
+        <Route path="/store/:storeId/login" element={<PageTransition><Layout><Auth /></Layout></PageTransition>} />
+        <Route path="/store/:storeId/reset-password" element={<PageTransition><Layout><ResetPassword /></Layout></PageTransition>} />
         <Route path="/store/:storeId/admin" element={
           <PageTransition>
             <Layout>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Settings, Package, Bell, BarChart as ChartIcon, Store, Plus, LogOut, ExternalLink, Lock, MapPin, Download, X, Share2, Search } from 'lucide-react';
 import { getStoreOrders, getStoreProducts, getStore, addProduct, updateProduct, deleteProduct, updateStoreSettings, updateOrderStatus, uploadImage } from '../lib/db';
+import { supabase } from '../lib/supabaseClient';
 import { createStore, seedProducts } from '../lib/seed';
 import LocationMap from '../components/LocationMap';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -21,35 +22,33 @@ const Admin = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedOrderForMap, setSelectedOrderForMap] = useState(null);
 
+    const navigate = useNavigate();
     // Security State
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [pinInput, setPinInput] = useState('');
 
-    const handleLogin = (e) => {
-        e.preventDefault();
-        // Check Master Key (9999) OR Store Admin IDs
-        if (pinInput === '9999') {
-            setIsAuthenticated(true);
-            return;
-        }
+    useEffect(() => {
+        const checkAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                navigate(`/store/${storeId}/login`);
+            } else {
+                setIsAuthenticated(true);
+            }
+        };
+        checkAuth();
 
-        // Check if store has specific admin ids
-        if (store && store.admin_ids && store.admin_ids.length > 0) {
-            // Check if input matches any of the admin IDs (simulated 'login')
-            if (store.admin_ids.includes(pinInput)) {
-                setIsAuthenticated(true);
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!session) {
+                navigate(`/store/${storeId}/login`);
             } else {
-                alert('Access Denied: Your ID/Phone is not authorized.');
-            }
-        } else {
-            // Fallback for stores created before this update (use old 1234)
-            if (pinInput === '1234' || pinInput === '9841XXXXXX') {
                 setIsAuthenticated(true);
-            } else {
-                alert('Incorrect PIN/ID');
             }
-        }
-    };
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, [storeId, navigate]);
 
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
@@ -229,35 +228,7 @@ const Admin = () => {
     }
 
     if (!isAuthenticated) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center space-y-6">
-                    <div className="w-16 h-16 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mx-auto">
-                        <Lock className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">{store.name} Admin</h2>
-                        <p className="text-gray-500 text-sm mt-1">Enter Admin ID / Phone Number</p>
-                    </div>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <input
-                            type="text"
-                            className="w-full text-center text-xl font-bold tracking-widest py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
-                            placeholder="Your Phone / ID"
-                            value={pinInput}
-                            onChange={(e) => setPinInput(e.target.value)}
-                            autoFocus
-                        />
-                        <button type="submit" className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition-colors">
-                            Unlock Dashboard
-                        </button>
-                    </form>
-                    <div className="text-xs text-center text-gray-400">
-                        Default PIN: 1234
-                    </div>
-                </div>
-            </div>
-        );
+        return <div className="p-10 text-center">Checking Authentication...</div>;
     }
 
     // Filter Logic
@@ -309,9 +280,9 @@ const Admin = () => {
                         <ExternalLink className="w-4 h-4" />
                         View Live Shop
                     </Link>
-                    <Link to="/" className="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                    <button onClick={async () => { await supabase.auth.signOut(); }} className="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                         <LogOut className="w-4 h-4" />
-                    </Link>
+                    </button>
                 </div>
             </div>
 
