@@ -18,8 +18,7 @@ const SuperAdmin = () => {
         color: 'green',
         logo: '',
         contact: '',
-        adminIds: '', // Comma separated
-        initialPassword: ''
+        admins: [{ phone: '', password: '' }] // Array for separate admin inputs
     });
 
     const [copiedId, setCopiedId] = useState(null);
@@ -117,11 +116,9 @@ const SuperAdmin = () => {
         e.preventDefault();
         if (!newStore.id || !newStore.name) return;
 
-        // Process admin IDs
-        const adminIdsArray = newStore.adminIds
-            .split(',')
-            .map(id => id.trim())
-            .filter(id => id.length > 0);
+        // Process admins ensuring they have filled fields
+        const validAdmins = newStore.admins.filter(a => a.phone.trim() !== '' && a.password.trim().length >= 6);
+        const adminIdsArray = validAdmins.map(a => a.phone.trim());
 
         const result = await createStore({
             ...newStore,
@@ -129,19 +126,17 @@ const SuperAdmin = () => {
         });
 
         if (result.success) {
-            // Automatically initialize Supabase Auth for the new Admins
-            if (newStore.initialPassword && adminIdsArray.length > 0) {
-                for (const phone of adminIdsArray) {
-                    const pseudoEmail = `${phone}@${newStore.id}.grocery.app`;
-                    await supabase.auth.signUp({
-                        email: pseudoEmail,
-                        password: newStore.initialPassword
-                    });
-                }
+            // Automatically initialize Supabase Auth for each valid admin
+            for (const admin of validAdmins) {
+                const pseudoEmail = `${admin.phone.trim()}@${newStore.id}.grocery.app`;
+                await supabase.auth.signUp({
+                    email: pseudoEmail,
+                    password: admin.password.trim()
+                });
             }
 
-            alert("Store created! Share the link with the manager. They can log in with their mobile number and the initial password you set.");
-            setNewStore({ id: '', name: '', color: 'green', logo: '', contact: '', adminIds: '', initialPassword: '' });
+            alert("Store created! You have successfully established access credentials for the given managers.");
+            setNewStore({ id: '', name: '', color: 'green', logo: '', contact: '', admins: [{ phone: '', password: '' }] });
             loadStores();
         } else {
             alert("Error: " + result.message);
@@ -297,30 +292,64 @@ const SuperAdmin = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
-                                        Admin Phones <span className="text-gray-300 font-normal">(Max 3)</span>
-                                    </label>
-                                    <input
-                                        placeholder="98..., 97..., 98..."
-                                        className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
-                                        value={newStore.adminIds}
-                                        onChange={e => setNewStore({ ...newStore, adminIds: e.target.value })}
-                                        required
-                                    />
-                                    <p className="text-xs text-gray-400 mt-1">Comma separated phone numbers.</p>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Initial Admin Password</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Set an initial password (min 6 chars)"
-                                        className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
-                                        value={newStore.initialPassword}
-                                        onChange={e => setNewStore({ ...newStore, initialPassword: e.target.value })}
-                                        minLength={6}
-                                        required
-                                    />
-                                    <p className="text-xs text-gray-400 mt-1">The manager will use this to sign in.</p>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
+                                            Store Managers / Admins <span className="text-gray-300 font-normal">(Max 3)</span>
+                                        </label>
+                                        {newStore.admins.length < 3 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setNewStore({ ...newStore, admins: [...newStore.admins, { phone: '', password: '' }] })}
+                                                className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100 transition"
+                                            >
+                                                + Add Another
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="space-y-3">
+                                        {newStore.admins.map((admin, index) => (
+                                            <div key={index} className="flex flex-col md:flex-row gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100 relative">
+                                                {newStore.admins.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setNewStore({ ...newStore, admins: newStore.admins.filter((_, i) => i !== index) })}
+                                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-200"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                )}
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="tel"
+                                                        placeholder="Mobile Number (e.g. 98XXXXXXXX)"
+                                                        className="w-full p-2 border rounded bg-white text-sm"
+                                                        value={admin.phone}
+                                                        onChange={e => {
+                                                            const newAdmins = [...newStore.admins];
+                                                            newAdmins[index].phone = e.target.value;
+                                                            setNewStore({ ...newStore, admins: newAdmins });
+                                                        }}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Password (min 6 chars)"
+                                                        className="w-full p-2 border rounded bg-white text-sm"
+                                                        value={admin.password}
+                                                        onChange={e => {
+                                                            const newAdmins = [...newStore.admins];
+                                                            newAdmins[index].password = e.target.value;
+                                                            setNewStore({ ...newStore, admins: newAdmins });
+                                                        }}
+                                                        minLength={6}
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">

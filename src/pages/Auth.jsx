@@ -9,10 +9,12 @@ export default function Auth() {
     const navigate = useNavigate();
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
+    const [otp, setOtp] = useState('');
+    const [mockOtp, setMockOtp] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [message, setMessage] = useState(null);
-    const [mode, setMode] = useState('login'); // 'login', 'signup', 'forgot_password'
+    const [mode, setMode] = useState('login'); // 'login', 'signup', 'forgot_password', 'otp_verification', 'set_new_password'
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -42,9 +44,33 @@ export default function Auth() {
                 // Redirect to admin page after successful login
                 navigate(`/store/${storeId}/admin`);
             } else if (mode === 'forgot_password') {
-                // Because we use a pseudo-email for phone numbers, real emails are not sent. 
-                // We prompt to contact Super Admin (or use Superadmin dash).
-                setError('Password reset link cannot be sent via SMS directly in this demo. Please contact the Superadmin to reset your password.');
+                if (phone.length < 8) throw new Error("Please enter a valid mobile number.");
+                // DEMO MODE: Generate a fake OTP and pretend to send it via SMS
+                const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+                setMockOtp(generatedCode);
+
+                // We show it in the message explicitly so you can test it:
+                setMessage(`[MOCK SMS DEMO] Your reset code is: ${generatedCode}`);
+                setMode('otp_verification');
+
+            } else if (mode === 'otp_verification') {
+                if (otp !== mockOtp) {
+                    throw new Error("Invalid OTP code.");
+                }
+                setMessage("Number verified! Please set your new password.");
+                setPassword(''); // clear password field for the new entry
+                setMode('set_new_password');
+
+            } else if (mode === 'set_new_password') {
+                if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+
+                // DEMO ONLY: We cannot physically overwrite a Supabase Auth password from the client-side 
+                // without the old password, an email recovery session, or a backend Service Role Key.
+                alert("🔔 MVP DEMO NOTICE:\n\nTo physically change passwords via SMS in production, you must connect an SMS Provider (like Twilio) in your Supabase Auth dashboard.\n\nFor now, the UI workflow is complete, but please login with your original password.");
+
+                setMode('login');
+                setMessage("Password reset simulation complete.");
+                setOtp('');
             }
         } catch (err) {
             setError(err.message || 'An error occurred during authentication.');
@@ -63,7 +89,9 @@ export default function Auth() {
                 </div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
                     {mode === 'login' ? 'Sign in to your store' :
-                        mode === 'signup' ? 'Create a new account' : 'Reset your password'}
+                        mode === 'signup' ? 'Create a new account' :
+                            mode === 'forgot_password' ? 'Reset your password' :
+                                mode === 'otp_verification' ? 'Enter OTP Code' : 'Set New Password'}
                 </h2>
                 {storeId && (
                     <p className="mt-2 text-center text-sm text-gray-600">
@@ -95,26 +123,47 @@ export default function Auth() {
                             </div>
                         )}
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
-                            <div className="mt-1 relative rounded-md shadow-sm">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-400 font-bold px-1">+977</span>
-                                </div>
-                                <input
-                                    type="tel"
-                                    required
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-14 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
-                                    placeholder="98XXXXXXXX"
-                                />
-                            </div>
-                        </div>
-
-                        {mode !== 'forgot_password' && (
+                        {mode !== 'otp_verification' && mode !== 'set_new_password' && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Password</label>
+                                <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
+                                <div className="mt-1 relative rounded-md shadow-sm">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span className="text-gray-400 font-bold px-1">+977</span>
+                                    </div>
+                                    <input
+                                        type="tel"
+                                        required
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-14 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
+                                        placeholder="98XXXXXXXX"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {mode === 'otp_verification' && (
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                                <label className="block text-sm font-medium text-gray-700">6-Digit OTP</label>
+                                <div className="mt-1 relative rounded-md shadow-sm">
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={6}
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value)}
+                                        className="focus:ring-primary-500 focus:border-primary-500 block w-full px-4 sm:text-lg tracking-widest font-mono text-center border-gray-300 rounded-md py-3 bg-gray-50"
+                                        placeholder="••••••"
+                                    />
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {(mode === 'login' || mode === 'signup' || mode === 'set_new_password') && (
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                                <label className="block text-sm font-medium text-gray-700">
+                                    {mode === 'set_new_password' ? 'New Password' : 'Password'}
+                                </label>
                                 <div className="mt-1 relative rounded-md shadow-sm">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Lock className="h-5 w-5 text-gray-400" />
@@ -125,10 +174,11 @@ export default function Auth() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
-                                        placeholder="••••••••"
+                                        placeholder={mode === 'set_new_password' ? 'Enter new password' : '••••••••'}
+                                        minLength={6}
                                     />
                                 </div>
-                            </div>
+                            </motion.div>
                         )}
 
                         {mode === 'login' && (
@@ -150,7 +200,8 @@ export default function Auth() {
                                 {loading ? 'Processing...' : (
                                     mode === 'login' ? 'Sign in' :
                                         mode === 'signup' ? 'Sign up' :
-                                            'Send reset instructions'
+                                            mode === 'forgot_password' ? 'Send OTP Code' :
+                                                mode === 'otp_verification' ? 'Verify Code' : 'Update Password'
                                 )}
                             </button>
                         </div>
