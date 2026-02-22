@@ -18,7 +18,8 @@ const SuperAdmin = () => {
         color: 'green',
         logo: '',
         contact: '',
-        adminIds: '' // Comma separated
+        adminIds: '', // Comma separated
+        initialPassword: ''
     });
 
     const [copiedId, setCopiedId] = useState(null);
@@ -128,8 +129,19 @@ const SuperAdmin = () => {
         });
 
         if (result.success) {
-            alert("Store created! Share the link with the manager.");
-            setNewStore({ id: '', name: '', color: 'green', logo: '', contact: '', adminIds: '' });
+            // Automatically initialize Supabase Auth for the new Admins
+            if (newStore.initialPassword && adminIdsArray.length > 0) {
+                for (const phone of adminIdsArray) {
+                    const pseudoEmail = `${phone}@${newStore.id}.grocery.app`;
+                    await supabase.auth.signUp({
+                        email: pseudoEmail,
+                        password: newStore.initialPassword
+                    });
+                }
+            }
+
+            alert("Store created! Share the link with the manager. They can log in with their mobile number and the initial password you set.");
+            setNewStore({ id: '', name: '', color: 'green', logo: '', contact: '', adminIds: '', initialPassword: '' });
             loadStores();
         } else {
             alert("Error: " + result.message);
@@ -293,8 +305,22 @@ const SuperAdmin = () => {
                                         className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
                                         value={newStore.adminIds}
                                         onChange={e => setNewStore({ ...newStore, adminIds: e.target.value })}
+                                        required
                                     />
                                     <p className="text-xs text-gray-400 mt-1">Comma separated phone numbers.</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Initial Admin Password</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Set an initial password (min 6 chars)"
+                                        className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+                                        value={newStore.initialPassword}
+                                        onChange={e => setNewStore({ ...newStore, initialPassword: e.target.value })}
+                                        minLength={6}
+                                        required
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">The manager will use this to sign in.</p>
                                 </div>
 
                                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">
