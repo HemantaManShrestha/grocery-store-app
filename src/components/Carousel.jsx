@@ -42,11 +42,11 @@ const Carousel = ({ products }) => {
             {/* Container */}
             <div
                 ref={scrollRef}
-                className="flex overflow-x-auto gap-4 pb-4 px-2 snap-x snap-mandatory scrollbar-hide"
+                className="flex overflow-x-auto gap-3 pb-4 px-2 snap-x snap-mandatory scrollbar-hide -mx-2"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
                 {products.map(product => (
-                    <div key={product.id} className="min-w-[280px] md:min-w-[320px] snap-center">
+                    <div key={product.id} className="min-w-[160px] md:min-w-[200px] max-w-[240px] snap-center">
                         <ProductCard product={product} isFeatured={true} />
                     </div>
                 ))}

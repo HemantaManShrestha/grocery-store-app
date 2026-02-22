@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import Masonry from 'react-masonry-css';
 import ProductCard from '../components/ProductCard';
 import Carousel from '../components/Carousel';
 import SEO from '../components/SEO';
@@ -85,19 +84,13 @@ const StoreHome = () => {
                 <Carousel products={products.filter(p => p.isSpotlight)} />
             )}
 
-            {/* Masonry Layout */}
+            {/* Dense Data Grid */}
             {filteredProducts.length > 0 ? (
-                <Masonry
-                    breakpointCols={{ default: 4, 1100: 3, 700: 2, 500: 1 }}
-                    className="my-masonry-grid flex w-auto -ml-4"
-                    columnClassName="my-masonry-grid_column pl-4 bg-clip-padding"
-                >
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 lg:gap-4">
                     {filteredProducts.map(product => (
-                        <div key={product.id} className="mb-4">
-                            <ProductCard product={product} />
-                        </div>
+                        <ProductCard key={product.id} product={product} />
                     ))}
-                </Masonry>
+                </div>
             ) : (
                 <div className="text-center py-10 text-gray-500">
                     No products found in this store yet.

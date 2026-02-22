@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 export default function Auth() {
     const { storeId } = useParams();
     const navigate = useNavigate();
-    const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -20,17 +20,21 @@ export default function Auth() {
         setError(null);
         setMessage(null);
 
+        // Pseudo-email for Supabase Auth bypass on MVP
+        const pseudoEmail = `${phone}@${storeId}.grocery.app`;
+
         try {
             if (mode === 'signup') {
                 const { data, error } = await supabase.auth.signUp({
-                    email,
+                    email: pseudoEmail,
                     password,
                 });
                 if (error) throw error;
-                setMessage('Check your email for the confirmation link.');
+                setMessage('Account created! You can now sign in.');
+                setMode('login'); // Auto-switch to login after signup since we bypass email confirmations
             } else if (mode === 'login') {
                 const { data, error } = await supabase.auth.signInWithPassword({
-                    email,
+                    email: pseudoEmail,
                     password,
                 });
                 if (error) throw error;
@@ -38,11 +42,9 @@ export default function Auth() {
                 // Redirect to admin page after successful login
                 navigate(`/store/${storeId}/admin`);
             } else if (mode === 'forgot_password') {
-                const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/store/${storeId}/reset-password`,
-                });
-                if (error) throw error;
-                setMessage('Password recovery instructions sent to your email.');
+                // Because we use a pseudo-email for phone numbers, real emails are not sent. 
+                // We prompt to contact Super Admin (or use Superadmin dash).
+                setError('Password reset link cannot be sent via SMS directly in this demo. Please contact the Superadmin to reset your password.');
             }
         } catch (err) {
             setError(err.message || 'An error occurred during authentication.');
@@ -94,18 +96,18 @@ export default function Auth() {
                         )}
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Email address</label>
+                            <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
                             <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Mail className="h-5 w-5 text-gray-400" />
+                                    <span className="text-gray-400 font-bold px-1">+977</span>
                                 </div>
                                 <input
-                                    type="email"
+                                    type="tel"
                                     required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
-                                    placeholder="you@example.com"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-14 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
+                                    placeholder="98XXXXXXXX"
                                 />
                             </div>
                         </div>
