@@ -4,17 +4,17 @@ import { supabase } from '../lib/supabaseClient';
 import { Store, Mail, Lock, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { getStore } from '../lib/db';
+
 export default function Auth() {
     const { storeId } = useParams();
     const navigate = useNavigate();
-    const [phone, setPhone] = useState('');
+    const [loginId, setLoginId] = useState(''); // Email or Mobile Number
     const [password, setPassword] = useState('');
-    const [otp, setOtp] = useState('');
-    const [mockOtp, setMockOtp] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [message, setMessage] = useState(null);
-    const [mode, setMode] = useState('login'); // 'login', 'signup', 'forgot_password', 'otp_verification', 'set_new_password'
+    const [mode, setMode] = useState('login'); // 'login', 'signup', 'forgot_password'
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -22,55 +22,57 @@ export default function Auth() {
         setError(null);
         setMessage(null);
 
-        // Pseudo-email for Supabase Auth bypass on MVP
-        const pseudoEmail = `${phone}@${storeId}.grocery.app`;
+        // Determine Target Email
+        let targetEmail = loginId.trim();
 
         try {
+            if (!targetEmail.includes('@')) {
+                const store = await getStore(storeId);
+                let foundEmail = null;
+                if (store && store.admin_ids) {
+                    for (let str of store.admin_ids) {
+                        try {
+                            const parsed = typeof str === 'string' ? JSON.parse(str) : str;
+                            if (parsed.phone === targetEmail || str === targetEmail) {
+                                foundEmail = parsed.email || `${targetEmail}@${storeId}.grocery.app`;
+                                break;
+                            }
+                        } catch (e) {
+                            if (str === targetEmail) {
+                                foundEmail = `${targetEmail}@${storeId}.grocery.app`;
+                                break;
+                            }
+                        }
+                    }
+                }
+                targetEmail = foundEmail || `${targetEmail}@${storeId}.grocery.app`;
+            }
+
             if (mode === 'signup') {
                 const { data, error } = await supabase.auth.signUp({
-                    email: pseudoEmail,
+                    email: targetEmail,
                     password,
                 });
                 if (error) throw error;
                 setMessage('Account created! You can now sign in.');
-                setMode('login'); // Auto-switch to login after signup since we bypass email confirmations
+                setMode('login');
             } else if (mode === 'login') {
                 const { data, error } = await supabase.auth.signInWithPassword({
-                    email: pseudoEmail,
+                    email: targetEmail,
                     password,
                 });
                 if (error) throw error;
-
-                // Redirect to admin page after successful login
                 navigate(`/store/${storeId}/admin`);
             } else if (mode === 'forgot_password') {
-                if (phone.length < 8) throw new Error("Please enter a valid mobile number.");
-                // DEMO MODE: Generate a fake OTP and pretend to send it via SMS
-                const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
-                setMockOtp(generatedCode);
-
-                // We show it in the message explicitly so you can test it:
-                setMessage(`[MOCK SMS DEMO] Your reset code is: ${generatedCode}`);
-                setMode('otp_verification');
-
-            } else if (mode === 'otp_verification') {
-                if (otp !== mockOtp) {
-                    throw new Error("Invalid OTP code.");
+                if (!targetEmail || targetEmail.includes('.grocery.app')) {
+                    throw new Error("No valid email registered. Please contact the Superadmin via Viber to reset your password.");
                 }
-                setMessage("Number verified! Please set your new password.");
-                setPassword(''); // clear password field for the new entry
-                setMode('set_new_password');
-
-            } else if (mode === 'set_new_password') {
-                if (password.length < 6) throw new Error("Password must be at least 6 characters.");
-
-                // DEMO ONLY: We cannot physically overwrite a Supabase Auth password from the client-side 
-                // without the old password, an email recovery session, or a backend Service Role Key.
-                alert("🔔 MVP DEMO NOTICE:\n\nTo physically change passwords via SMS in production, you must connect an SMS Provider (like Twilio) in your Supabase Auth dashboard.\n\nFor now, the UI workflow is complete, but please login with your original password.");
-
+                const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+                    redirectTo: `${window.location.origin}/store/${storeId}/reset-password`,
+                });
+                if (error) throw error;
+                setMessage(`Reset instructions sent to your email! (Or contact Super Admin on Viber).`);
                 setMode('login');
-                setMessage("Password reset simulation complete.");
-                setOtp('');
             }
         } catch (err) {
             setError(err.message || 'An error occurred during authentication.');
@@ -90,8 +92,7 @@ export default function Auth() {
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
                     {mode === 'login' ? 'Sign in to your store' :
                         mode === 'signup' ? 'Create a new account' :
-                            mode === 'forgot_password' ? 'Reset your password' :
-                                mode === 'otp_verification' ? 'Enter OTP Code' : 'Set New Password'}
+                            'Reset your password'}
                 </h2>
                 {storeId && (
                     <p className="mt-2 text-center text-sm text-gray-600">
@@ -123,47 +124,45 @@ export default function Auth() {
                             </div>
                         )}
 
-                        {mode !== 'otp_verification' && mode !== 'set_new_password' && (
+                        {mode !== 'forgot_password' ? (
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
+                                <label className="block text-sm font-medium text-gray-700">Email Address or Mobile Number</label>
                                 <div className="mt-1 relative rounded-md shadow-sm">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span className="text-gray-400 font-bold px-1">+977</span>
+                                        <Mail className="h-5 w-5 text-gray-400" />
                                     </div>
                                     <input
-                                        type="tel"
+                                        type="text"
                                         required
-                                        value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
-                                        className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-14 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
-                                        placeholder="98XXXXXXXX"
+                                        value={loginId}
+                                        onChange={(e) => setLoginId(e.target.value)}
+                                        className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
+                                        placeholder="manager@store.com or 98..."
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Registered Mobile or Email</label>
+                                <div className="mt-1 relative rounded-md shadow-sm">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Mail className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={loginId}
+                                        onChange={(e) => setLoginId(e.target.value)}
+                                        className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
+                                        placeholder="Enter your email or phone"
                                     />
                                 </div>
                             </div>
                         )}
 
-                        {mode === 'otp_verification' && (
+                        {mode !== 'forgot_password' && (
                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                                <label className="block text-sm font-medium text-gray-700">6-Digit OTP</label>
-                                <div className="mt-1 relative rounded-md shadow-sm">
-                                    <input
-                                        type="text"
-                                        required
-                                        maxLength={6}
-                                        value={otp}
-                                        onChange={(e) => setOtp(e.target.value)}
-                                        className="focus:ring-primary-500 focus:border-primary-500 block w-full px-4 sm:text-lg tracking-widest font-mono text-center border-gray-300 rounded-md py-3 bg-gray-50"
-                                        placeholder="••••••"
-                                    />
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {(mode === 'login' || mode === 'signup' || mode === 'set_new_password') && (
-                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                                <label className="block text-sm font-medium text-gray-700">
-                                    {mode === 'set_new_password' ? 'New Password' : 'Password'}
-                                </label>
+                                <label className="block text-sm font-medium text-gray-700">Password</label>
                                 <div className="mt-1 relative rounded-md shadow-sm">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Lock className="h-5 w-5 text-gray-400" />
@@ -174,7 +173,7 @@ export default function Auth() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-3 bg-gray-50"
-                                        placeholder={mode === 'set_new_password' ? 'Enter new password' : '••••••••'}
+                                        placeholder="••••••••"
                                         minLength={6}
                                     />
                                 </div>
@@ -200,8 +199,7 @@ export default function Auth() {
                                 {loading ? 'Processing...' : (
                                     mode === 'login' ? 'Sign in' :
                                         mode === 'signup' ? 'Sign up' :
-                                            mode === 'forgot_password' ? 'Send OTP Code' :
-                                                mode === 'otp_verification' ? 'Verify Code' : 'Update Password'
+                                            'Send Email Reset Link'
                                 )}
                             </button>
                         </div>

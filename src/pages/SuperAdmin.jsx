@@ -18,7 +18,7 @@ const SuperAdmin = () => {
         color: 'green',
         logo: '',
         contact: '',
-        admins: [{ phone: '', password: '' }] // Array for separate admin inputs
+        admins: [{ phone: '', email: '', password: '' }] // Array for separate admin inputs
     });
 
     const [copiedId, setCopiedId] = useState(null);
@@ -118,7 +118,10 @@ const SuperAdmin = () => {
 
         // Process admins ensuring they have filled fields
         const validAdmins = newStore.admins.filter(a => a.phone.trim() !== '' && a.password.trim().length >= 6);
-        const adminIdsArray = validAdmins.map(a => a.phone.trim());
+        const adminIdsArray = validAdmins.map(a => JSON.stringify({
+            phone: a.phone.trim(),
+            email: a.email.trim() || `${a.phone.trim()}@${newStore.id}.grocery.app`
+        }));
 
         const result = await createStore({
             ...newStore,
@@ -126,17 +129,18 @@ const SuperAdmin = () => {
         });
 
         if (result.success) {
-            // Automatically initialize Supabase Auth for each valid admin
+            // Automatically initialize Supabase Auth for each valid admin using their Real Email
             for (const admin of validAdmins) {
-                const pseudoEmail = `${admin.phone.trim()}@${newStore.id}.grocery.app`;
+                const finalEmail = admin.email.trim() || `${admin.phone.trim()}@${newStore.id}.grocery.app`;
                 await supabase.auth.signUp({
-                    email: pseudoEmail,
-                    password: admin.password.trim()
+                    email: finalEmail,
+                    password: admin.password.trim(),
+                    options: { data: { phone: admin.phone.trim() } }
                 });
             }
 
-            alert("Store created! You have successfully established access credentials for the given managers.");
-            setNewStore({ id: '', name: '', color: 'green', logo: '', contact: '', admins: [{ phone: '', password: '' }] });
+            alert("Store created! Credentials established. They can log in with their Phone OR Email.");
+            setNewStore({ id: '', name: '', color: 'green', logo: '', contact: '', admins: [{ phone: '', email: '', password: '' }] });
             loadStores();
         } else {
             alert("Error: " + result.message);
@@ -299,7 +303,7 @@ const SuperAdmin = () => {
                                         {newStore.admins.length < 3 && (
                                             <button
                                                 type="button"
-                                                onClick={() => setNewStore({ ...newStore, admins: [...newStore.admins, { phone: '', password: '' }] })}
+                                                onClick={() => setNewStore({ ...newStore, admins: [...newStore.admins, { phone: '', email: '', password: '' }] })}
                                                 className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100 transition"
                                             >
                                                 + Add Another
@@ -321,7 +325,7 @@ const SuperAdmin = () => {
                                                 <div className="flex-1">
                                                     <input
                                                         type="tel"
-                                                        placeholder="Mobile Number (e.g. 98XXXXXXXX)"
+                                                        placeholder="Mobile (e.g. 98...)"
                                                         className="w-full p-2 border rounded bg-white text-sm"
                                                         value={admin.phone}
                                                         onChange={e => {
@@ -334,8 +338,22 @@ const SuperAdmin = () => {
                                                 </div>
                                                 <div className="flex-1">
                                                     <input
+                                                        type="email"
+                                                        placeholder="Email (for resets)"
+                                                        className="w-full p-2 border rounded bg-white text-sm"
+                                                        value={admin.email}
+                                                        onChange={e => {
+                                                            const newAdmins = [...newStore.admins];
+                                                            newAdmins[index].email = e.target.value;
+                                                            setNewStore({ ...newStore, admins: newAdmins });
+                                                        }}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <input
                                                         type="text"
-                                                        placeholder="Password (min 6 chars)"
+                                                        placeholder="Pass (min 6)"
                                                         className="w-full p-2 border rounded bg-white text-sm"
                                                         value={admin.password}
                                                         onChange={e => {
