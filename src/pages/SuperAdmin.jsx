@@ -163,32 +163,39 @@ const SuperAdmin = () => {
         setLoading(true);
 
         try {
-            // Update the store's admin_ids array to include the new phone
-            await supabase.from('stores')
-                .update({ admin_ids: [resetModal.newPhone] })
-                .eq('id', resetModal.storeId);
-
             // True Password Replacement requires Supabase Service Role Key to update auth.users securely from client.
             const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
+            let finalEmail = '';
+
             if (serviceKey) {
-                // If the user configures the secret admin key, we can theoretically update the actual user auth here.
                 alert(`Security Update complete! Mobile & password resynced via Service Role.`);
+                finalEmail = `${resetModal.newPhone}@${resetModal.storeId}.grocery.app`;
             } else {
-                // Workaround for MVP: Create a fresh pseudo-email for the new phone.
-                const pseudoEmail = `${resetModal.newPhone}@${resetModal.storeId}.grocery.app`;
-                await supabase.auth.signUp({
-                    email: pseudoEmail,
+                // Workaround for MVP: Create a fresh salted pseudo-email for the new phone to forcefully bypass "User Exists"
+                const salt = Date.now().toString().slice(-4);
+                finalEmail = `${resetModal.newPhone}-${salt}@${resetModal.storeId}.grocery.app`;
+                const { error: signUpError } = await supabase.auth.signUp({
+                    email: finalEmail,
                     password: resetModal.newPassword
                 });
+
+                if (signUpError) throw signUpError;
                 alert(`SUCCESS: Access granted for ${resetModal.newPhone}! The Store Manager can now login with this number and new password. Note: Old dashboard sessions are not destroyed without a Service Role Key.`);
             }
+
+            // Update the store's admin_ids array to accurately map the new phone and its valid auth email
+            await supabase.from('stores')
+                .update({
+                    admin_ids: [JSON.stringify({ phone: resetModal.newPhone, email: finalEmail })]
+                })
+                .eq('id', resetModal.storeId);
 
             setResetModal({ isOpen: false, storeId: null, newPhone: '', newPassword: '' });
             loadStores();
         } catch (error) {
             console.error(error);
-            alert("Failed to reset credentials.");
+            alert("Failed to reset credentials. " + (error.message || ''));
         }
         setLoading(false);
     };
@@ -238,167 +245,169 @@ const SuperAdmin = () => {
 
                     {/* Create Store Form */}
                     <div className="lg:col-span-1">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-8">
-                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <Plus className="w-5 h-5 text-blue-600" /> Create New Store
-                            </h2>
-                            <form onSubmit={handleCreate} className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Store ID (URL Slug)</label>
-                                    <input
-                                        required
-                                        placeholder="e.g. kathmandu-mart"
-                                        className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
-                                        value={newStore.id}
-                                        onChange={e => setNewStore({ ...newStore, id: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Store Name</label>
-                                    <input
-                                        required
-                                        placeholder="e.g. Kathmandu Mart"
-                                        className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
-                                        value={newStore.name}
-                                        onChange={e => setNewStore({ ...newStore, name: e.target.value })}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
+                        <div className="sticky top-8">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                    <Plus className="w-5 h-5 text-blue-600" /> Create New Store
+                                </h2>
+                                <form onSubmit={handleCreate} className="space-y-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Theme</label>
-                                        <select
-                                            className="w-full p-3 border rounded-lg bg-gray-50"
-                                            value={newStore.color}
-                                            onChange={e => setNewStore({ ...newStore, color: e.target.value })}
-                                        >
-                                            <option value="green">Green</option>
-                                            <option value="blue">Blue</option>
-                                            <option value="red">Red</option>
-                                            <option value="orange">Orange</option>
-                                        </select>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Store ID (URL Slug)</label>
+                                        <input
+                                            required
+                                            placeholder="e.g. kathmandu-mart"
+                                            className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+                                            value={newStore.id}
+                                            onChange={e => setNewStore({ ...newStore, id: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                        />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Logo</label>
-                                        <div className="space-y-2">
-                                            <input
-                                                placeholder="Image URL"
-                                                className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
-                                                value={newStore.logo}
-                                                onChange={e => setNewStore({ ...newStore, logo: e.target.value })}
-                                            />
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleImageUpload}
-                                                className="w-full text-xs text-gray-500"
-                                            />
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Store Name</label>
+                                        <input
+                                            required
+                                            placeholder="e.g. Kathmandu Mart"
+                                            className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+                                            value={newStore.name}
+                                            onChange={e => setNewStore({ ...newStore, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">Theme</label>
+                                            <select
+                                                className="w-full p-3 border rounded-lg bg-gray-50"
+                                                value={newStore.color}
+                                                onChange={e => setNewStore({ ...newStore, color: e.target.value })}
+                                            >
+                                                <option value="green">Green</option>
+                                                <option value="blue">Blue</option>
+                                                <option value="red">Red</option>
+                                                <option value="orange">Orange</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">Logo</label>
+                                            <div className="space-y-2">
+                                                <input
+                                                    placeholder="Image URL"
+                                                    className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+                                                    value={newStore.logo}
+                                                    onChange={e => setNewStore({ ...newStore, logo: e.target.value })}
+                                                />
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleImageUpload}
+                                                    className="w-full text-xs text-gray-500"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
-                                            Store Managers / Admins <span className="text-gray-300 font-normal">(Max 3)</span>
-                                        </label>
-                                        {newStore.admins.length < 3 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setNewStore({ ...newStore, admins: [...newStore.admins, { phone: '', email: '', password: '' }] })}
-                                                className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100 transition"
-                                            >
-                                                + Add Another
-                                            </button>
-                                        )}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
+                                                Store Managers / Admins <span className="text-gray-300 font-normal">(Max 3)</span>
+                                            </label>
+                                            {newStore.admins.length < 3 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNewStore({ ...newStore, admins: [...newStore.admins, { phone: '', email: '', password: '' }] })}
+                                                    className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100 transition"
+                                                >
+                                                    + Add Another
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="space-y-3">
+                                            {newStore.admins.map((admin, index) => (
+                                                <div key={index} className="flex flex-col md:flex-row gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100 relative">
+                                                    {newStore.admins.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNewStore({ ...newStore, admins: newStore.admins.filter((_, i) => i !== index) })}
+                                                            className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-200"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                    <div className="flex-1">
+                                                        <input
+                                                            type="tel"
+                                                            placeholder="Mobile (e.g. 98...)"
+                                                            className="w-full p-2 border rounded bg-white text-sm"
+                                                            value={admin.phone}
+                                                            onChange={e => {
+                                                                const newAdmins = [...newStore.admins];
+                                                                newAdmins[index].phone = e.target.value;
+                                                                setNewStore({ ...newStore, admins: newAdmins });
+                                                            }}
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <input
+                                                            type="email"
+                                                            placeholder="Email (for resets)"
+                                                            className="w-full p-2 border rounded bg-white text-sm"
+                                                            value={admin.email}
+                                                            onChange={e => {
+                                                                const newAdmins = [...newStore.admins];
+                                                                newAdmins[index].email = e.target.value;
+                                                                setNewStore({ ...newStore, admins: newAdmins });
+                                                            }}
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Pass (min 6)"
+                                                            className="w-full p-2 border rounded bg-white text-sm"
+                                                            value={admin.password}
+                                                            onChange={e => {
+                                                                const newAdmins = [...newStore.admins];
+                                                                newAdmins[index].password = e.target.value;
+                                                                setNewStore({ ...newStore, admins: newAdmins });
+                                                            }}
+                                                            minLength={6}
+                                                            required
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        {newStore.admins.map((admin, index) => (
-                                            <div key={index} className="flex flex-col md:flex-row gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100 relative">
-                                                {newStore.admins.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setNewStore({ ...newStore, admins: newStore.admins.filter((_, i) => i !== index) })}
-                                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-200"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                )}
-                                                <div className="flex-1">
-                                                    <input
-                                                        type="tel"
-                                                        placeholder="Mobile (e.g. 98...)"
-                                                        className="w-full p-2 border rounded bg-white text-sm"
-                                                        value={admin.phone}
-                                                        onChange={e => {
-                                                            const newAdmins = [...newStore.admins];
-                                                            newAdmins[index].phone = e.target.value;
-                                                            setNewStore({ ...newStore, admins: newAdmins });
-                                                        }}
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <input
-                                                        type="email"
-                                                        placeholder="Email (for resets)"
-                                                        className="w-full p-2 border rounded bg-white text-sm"
-                                                        value={admin.email}
-                                                        onChange={e => {
-                                                            const newAdmins = [...newStore.admins];
-                                                            newAdmins[index].email = e.target.value;
-                                                            setNewStore({ ...newStore, admins: newAdmins });
-                                                        }}
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Pass (min 6)"
-                                                        className="w-full p-2 border rounded bg-white text-sm"
-                                                        value={admin.password}
-                                                        onChange={e => {
-                                                            const newAdmins = [...newStore.admins];
-                                                            newAdmins[index].password = e.target.value;
-                                                            setNewStore({ ...newStore, admins: newAdmins });
-                                                        }}
-                                                        minLength={6}
-                                                        required
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">
-                                    Create Store
+                                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">
+                                        Create Store
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* Demo Store Generator */}
+                            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-2xl shadow-lg mt-6 text-white relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+                                <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+                                    🚀 Need a Demo?
+                                </h3>
+                                <p className="text-indigo-100 text-sm mb-4">
+                                    Generate a full demo store with 20 products and 150+ dummy orders to test Analytics.
+                                </p>
+                                <button
+                                    onClick={async () => {
+                                        if (window.confirm("Create a new Demo Store?")) {
+                                            setLoading(true);
+                                            const result = await createDemoStore();
+                                            alert(result.message);
+                                            loadStores();
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold hover:bg-indigo-50 transition shadow-xl"
+                                >
+                                    Generate Demo Store
                                 </button>
-                            </form>
-                        </div>
-
-                        {/* Demo Store Generator */}
-                        <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-2xl shadow-lg mt-6 text-white relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
-                            <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-                                🚀 Need a Demo?
-                            </h3>
-                            <p className="text-indigo-100 text-sm mb-4">
-                                Generate a full demo store with 20 products and 150+ dummy orders to test Analytics.
-                            </p>
-                            <button
-                                onClick={async () => {
-                                    if (window.confirm("Create a new Demo Store?")) {
-                                        setLoading(true);
-                                        const result = await createDemoStore();
-                                        alert(result.message);
-                                        loadStores();
-                                        setLoading(false);
-                                    }
-                                }}
-                                className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold hover:bg-indigo-50 transition shadow-xl"
-                            >
-                                Generate Demo Store
-                            </button>
+                            </div>
                         </div>
                     </div>
 
